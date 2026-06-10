@@ -187,6 +187,7 @@
       font-size: 12px;
       font-weight: 800;
       white-space: nowrap;
+      max-width: 100%;
     }
 
     .buy, .win {
@@ -260,6 +261,49 @@
       border-radius: 8px;
     }
 
+    .mobile-cards {
+      display: none;
+      gap: 10px;
+    }
+
+    .record-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--soft);
+      padding: 12px;
+    }
+
+    .record-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .record-title {
+      font-weight: 800;
+    }
+
+    .record-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .record-grid span {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      margin-bottom: 3px;
+    }
+
+    .record-grid strong {
+      display: block;
+      font-size: 13px;
+      overflow-wrap: anywhere;
+    }
+
     table {
       width: 100%;
       min-width: 820px;
@@ -319,10 +363,74 @@
       header {
         align-items: flex-start;
         flex-direction: column;
+        padding: 14px 14px;
       }
 
       .account-grid, .position, .candle-grid {
         grid-template-columns: 1fr;
+      }
+
+      main {
+        padding: 14px;
+      }
+
+      nav {
+        width: 100%;
+      }
+
+      nav button {
+        flex: 1;
+      }
+
+      .meta {
+        justify-content: flex-start;
+      }
+
+      .card {
+        min-height: 76px;
+      }
+
+      .card strong {
+        font-size: 21px;
+      }
+
+      .rule-strip {
+        gap: 6px;
+      }
+
+      .badge {
+        min-height: 24px;
+        padding: 0 8px;
+        font-size: 11px;
+        white-space: normal;
+      }
+
+      .field {
+        min-height: 68px;
+      }
+
+      .focus-card strong, .field strong {
+        font-size: 16px;
+      }
+
+      .record-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .desktop-table {
+        display: none;
+      }
+
+      .mobile-cards {
+        display: grid;
+      }
+
+      .toolbar {
+        display: grid;
+      }
+
+      .tool-btn {
+        width: 100%;
       }
     }
   </style>
@@ -380,7 +488,7 @@
 
         <div class="panel">
           <h2>Every Outcome</h2>
-          <div class="table-wrap">
+          <div class="table-wrap desktop-table">
             <table>
               <thead>
                 <tr>
@@ -398,12 +506,13 @@
               <tbody id="outcomes"></tbody>
             </table>
           </div>
+          <div id="outcomeCards" class="mobile-cards"></div>
         </div>
       </section>
 
       <section class="panel" style="margin-top: 14px;">
         <h2>Transaction Ledger</h2>
-        <div class="table-wrap">
+        <div class="table-wrap desktop-table">
           <table>
             <thead>
               <tr>
@@ -423,6 +532,7 @@
             <tbody id="transactions"></tbody>
           </table>
         </div>
+        <div id="transactionCards" class="mobile-cards"></div>
       </section>
     </section>
 
@@ -857,8 +967,10 @@
 
     function renderOutcomes() {
       const body = document.querySelector("#outcomes");
+      const cards = document.querySelector("#outcomeCards");
       if (!state.trades.length) {
         body.innerHTML = `<tr><td colspan="9" class="muted">No paper trades yet.</td></tr>`;
+        cards.innerHTML = `<div class="record-card muted">No paper trades yet.</div>`;
         return;
       }
       body.innerHTML = state.trades.map((trade) => {
@@ -879,12 +991,35 @@
           </tr>
         `;
       }).join("");
+      cards.innerHTML = state.trades.map((trade) => {
+        const pnl = trade.status === "OPEN" ? Number(trade.unrealizedPnl || 0) : Number(trade.realizedPnl || 0);
+        const points = trade.status === "OPEN" ? Number(trade.unrealizedPoints || 0) : Number(trade.realizedPoints || 0);
+        const lastOrExit = trade.status === "OPEN" ? trade.lastPrice : trade.exit;
+        return `
+          <article class="record-card ${moneyClass(pnl)}">
+            <div class="record-head">
+              <div class="record-title">Trade #${trade.id}</div>
+              ${statusBadge(trade)}
+            </div>
+            <div class="record-grid">
+              <div><span>Side</span><strong>${trade.side}</strong></div>
+              <div><span>Outcome</span><strong>${trade.status === "OPEN" ? trade.state : trade.outcome}</strong></div>
+              <div><span>Entry</span><strong>${num.format(trade.entry)}</strong></div>
+              <div><span>Last/Exit</span><strong>${num.format(lastOrExit)}</strong></div>
+              <div><span>Points</span><strong class="${textClass(points)}">${num.format(points)}</strong></div>
+              <div><span>P/L</span><strong class="${textClass(pnl)}">${usd.format(pnl)}</strong></div>
+            </div>
+          </article>
+        `;
+      }).join("");
     }
 
     function renderTransactions() {
       const body = document.querySelector("#transactions");
+      const cards = document.querySelector("#transactionCards");
       if (!state.transactions.length) {
         body.innerHTML = `<tr><td colspan="11" class="muted">No transactions yet.</td></tr>`;
+        cards.innerHTML = `<div class="record-card muted">No transactions yet.</div>`;
         return;
       }
       body.innerHTML = state.transactions.map((transaction) => `
@@ -902,6 +1037,27 @@
           <td>${transaction.reason}</td>
         </tr>
       `).join("");
+      cards.innerHTML = state.transactions.map((transaction) => {
+        const pnl = Number(transaction.pnl || 0);
+        const points = Number(transaction.points || 0);
+        return `
+          <article class="record-card ${moneyClass(pnl)}">
+            <div class="record-head">
+              <div class="record-title">${transaction.type} #${transaction.tradeId}</div>
+              <span class="badge ${transaction.type === "OPEN" ? "open" : pnl >= 0 ? "win" : "loss"}">${transaction.type}</span>
+            </div>
+            <div class="record-grid">
+              <div><span>Side</span><strong>${transaction.side}</strong></div>
+              <div><span>Price</span><strong>${num.format(transaction.price)}</strong></div>
+              <div><span>Points</span><strong class="${textClass(points)}">${num.format(points)}</strong></div>
+              <div><span>P/L</span><strong class="${textClass(pnl)}">${usd.format(pnl)}</strong></div>
+              <div><span>Balance</span><strong>${usd.format(transaction.balance)}</strong></div>
+              <div><span>Lots</span><strong>${transaction.lots}</strong></div>
+            </div>
+            <p class="muted" style="margin: 10px 0 0;">${transaction.reason}</p>
+          </article>
+        `;
+      }).join("");
     }
 
     function renderAgent() {
