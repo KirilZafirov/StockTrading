@@ -27,11 +27,21 @@
       box-sizing: border-box;
     }
 
+    html {
+      overscroll-behavior: none;
+      overflow-x: hidden;
+      background: var(--bg);
+    }
+
     body {
       margin: 0;
       background: var(--bg);
       color: var(--text);
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      min-height: 100dvh;
+      overscroll-behavior: none;
+      overflow-x: hidden;
+      touch-action: pan-y;
     }
 
     header {
@@ -349,6 +359,46 @@
       margin-top: 14px;
     }
 
+    .settings-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .setting {
+      background: var(--soft);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+    }
+
+    .setting label {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+
+    .setting input,
+    .setting select {
+      width: 100%;
+      min-height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #111419;
+      color: var(--text);
+      padding: 0 10px;
+      font: inherit;
+      font-size: 14px;
+    }
+
+    .setting p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
     @media (max-width: 1100px) {
       .account-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -366,7 +416,7 @@
         padding: 14px 14px;
       }
 
-      .account-grid, .position, .candle-grid {
+      .account-grid, .position, .candle-grid, .settings-grid {
         grid-template-columns: 1fr;
       }
 
@@ -442,6 +492,7 @@
       <nav aria-label="Views">
         <button id="accountNav" class="active" type="button">Paper Account</button>
         <button id="agentNav" type="button">Candle Agent</button>
+        <button id="settingsNav" type="button">Settings</button>
       </nav>
     </div>
     <div class="meta">
@@ -466,14 +517,14 @@
         <span id="feedBadge" class="badge open">feed --</span>
         <span id="providerBadge" class="badge open">provider --</span>
         <span class="badge open">localStorage</span>
-        <span class="badge open">15m candles</span>
-        <span class="badge open">180s decision</span>
-        <span class="badge open">strict wick <= 20</span>
-        <span class="badge win">first trail +30</span>
-        <span class="badge win">second trail +50</span>
-        <span class="badge loss">SL -20 pts</span>
-        <span class="badge open">5 lots</span>
-        <span class="badge open">$5 / point</span>
+        <span id="timeframeBadge" class="badge open">15m candles</span>
+        <span id="decisionBadge" class="badge open">180s decision</span>
+        <span id="wickBadge" class="badge open">strict wick <= 20</span>
+        <span id="firstTrailBadge" class="badge win">first trail +30</span>
+        <span id="secondTrailBadge" class="badge win">second trail +50</span>
+        <span id="stopBadge" class="badge loss">SL -20 pts</span>
+        <span id="lotsBadge" class="badge open">5 lots</span>
+        <span id="pointValueBadge" class="badge open">$5 / point</span>
       </div>
 
       <section class="layout">
@@ -553,7 +604,7 @@
 
       <section class="layout">
         <div class="panel">
-          <h2>15m Candle Watch</h2>
+          <h2 id="candleWatchTitle">15m Candle Watch</h2>
           <div class="candle-grid">
             <div class="field"><span>Start</span><strong id="candleStart">--</strong></div>
             <div class="field"><span>Decision Time</span><strong id="decisionTime">--</strong></div>
@@ -568,10 +619,71 @@
 
         <div class="panel">
           <h2>Rules</h2>
-          <div class="field"><span>Entry</span><strong>180s strict candle check</strong></div>
-          <div class="field"><span>Wick</span><strong>No entry above 20 points</strong></div>
-          <div class="field"><span>Protection</span><strong>+30 then +50</strong></div>
-          <div class="field"><span>Stop</span><strong>-20 points</strong></div>
+          <div class="field"><span>Entry</span><strong id="ruleEntry">180s strict candle check</strong></div>
+          <div class="field"><span>Wick</span><strong id="ruleWick">No entry above 20 points</strong></div>
+          <div class="field"><span>Protection</span><strong id="ruleProtection">+30 then +50</strong></div>
+          <div class="field"><span>Stop</span><strong id="ruleStop">-20 points</strong></div>
+        </div>
+      </section>
+    </section>
+
+    <section id="settingsView" class="view">
+      <section class="panel">
+        <h2>Trading Flow Settings</h2>
+        <div class="settings-grid">
+          <div class="setting">
+            <label for="settingTimeframe">Candlestick timeframe</label>
+            <select id="settingTimeframe">
+              <option value="15">15 minutes</option>
+              <option value="30">30 minutes</option>
+              <option value="45">45 minutes</option>
+            </select>
+            <p>Controls candle boundaries and when open trades fall back to candle-close exit.</p>
+          </div>
+          <div class="setting">
+            <label for="settingDecisionSeconds">Decision checkpoint seconds</label>
+            <input id="settingDecisionSeconds" type="number" min="30" max="900" step="10">
+            <p>How long to let the candle form before checking wick/structure.</p>
+          </div>
+          <div class="setting">
+            <label for="settingMaxWick">Maximum counter wick points</label>
+            <input id="settingMaxWick" type="number" min="0" max="200" step="1">
+            <p>No BUY/SELL if counter wick is greater than this value.</p>
+          </div>
+          <div class="setting">
+            <label for="settingStopLoss">Stop loss points</label>
+            <input id="settingStopLoss" type="number" min="1" max="300" step="1">
+            <p>Initial protective stop before staged trailing protection is reached.</p>
+          </div>
+          <div class="setting">
+            <label for="settingFirstTrail">First trailing protection points</label>
+            <input id="settingFirstTrail" type="number" min="1" max="500" step="1">
+            <p>First protected profit level after the trade moves in our favor.</p>
+          </div>
+          <div class="setting">
+            <label for="settingSecondTrail">Second trailing protection points</label>
+            <input id="settingSecondTrail" type="number" min="1" max="700" step="1">
+            <p>Second protected profit level; after this, the trade is left until protection loss or candle close.</p>
+          </div>
+          <div class="setting">
+            <label for="settingLots">Paper lots</label>
+            <input id="settingLots" type="number" min="1" max="100" step="1">
+            <p>Paper position size used for fake P/L calculations.</p>
+          </div>
+          <div class="setting">
+            <label for="settingDollarsPerLot">Dollars per point per lot</label>
+            <input id="settingDollarsPerLot" type="number" min="0.1" max="100" step="0.1">
+            <p>Total $/point equals lots multiplied by this value.</p>
+          </div>
+          <div class="setting">
+            <label for="settingProviderSymbol">Yahoo provider symbol</label>
+            <input id="settingProviderSymbol" type="text">
+            <p>Default is NQ=F. Changing this resets the feed on next save.</p>
+          </div>
+        </div>
+        <div class="toolbar">
+          <button id="saveSettingsBtn" class="tool-btn" type="button">Save Settings</button>
+          <button id="resetSettingsBtn" class="tool-btn" type="button">Restore Defaults</button>
         </div>
       </section>
     </section>
@@ -579,21 +691,23 @@
 
   <script>
     const STORE_KEY = "nas100-static-paper-agent-v1";
-    const CANDLE_SECONDS = 15 * 60;
-    const DECISION_SECONDS = 180;
-    const MAX_COUNTER_WICK = 20;
-    const FIRST_TRAIL = 30;
-    const SECOND_TRAIL = 50;
-    const STOP_LOSS = 20;
-    const START_BALANCE = 20000;
-    const LOTS = 5;
-    const DOLLARS_PER_POINT = 5;
-    const YAHOO_SYMBOL = "NQ=F";
-    const YAHOO_URL = "https://query1.finance.yahoo.com/v8/finance/chart/NQ%3DF?range=1d&interval=1m";
-    const POLL_MS = 5000;
+    const DEFAULT_SETTINGS = {
+      timeframeMinutes: 15,
+      decisionSeconds: 180,
+      maxCounterWick: 20,
+      stopLossPoints: 20,
+      firstTrailPoints: 30,
+      secondTrailPoints: 50,
+      startBalance: 20000,
+      lots: 5,
+      dollarsPerPointPerLot: 1,
+      providerSymbol: "NQ=F",
+      providerPollMs: 5000,
+    };
 
     const usd = new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" });
     const num = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 2 });
+    let state;
 
     function nowIso() {
       return new Date().toISOString();
@@ -603,27 +717,68 @@
       return new Date(epochMs).toLocaleTimeString([], { hour12: false });
     }
 
+    function normalizeSettings(settings = {}) {
+      const merged = { ...DEFAULT_SETTINGS, ...settings };
+      const timeframe = [15, 30, 45].includes(Number(merged.timeframeMinutes))
+        ? Number(merged.timeframeMinutes)
+        : DEFAULT_SETTINGS.timeframeMinutes;
+      const firstTrail = Math.max(1, Number(merged.firstTrailPoints) || DEFAULT_SETTINGS.firstTrailPoints);
+      const secondTrail = Math.max(firstTrail, Number(merged.secondTrailPoints) || DEFAULT_SETTINGS.secondTrailPoints);
+      return {
+        timeframeMinutes: timeframe,
+        decisionSeconds: Math.max(30, Math.min(900, Number(merged.decisionSeconds) || DEFAULT_SETTINGS.decisionSeconds)),
+        maxCounterWick: Math.max(0, Number(merged.maxCounterWick) || 0),
+        stopLossPoints: Math.max(1, Number(merged.stopLossPoints) || DEFAULT_SETTINGS.stopLossPoints),
+        firstTrailPoints: firstTrail,
+        secondTrailPoints: secondTrail,
+        startBalance: DEFAULT_SETTINGS.startBalance,
+        lots: Math.max(1, Math.round(Number(merged.lots) || DEFAULT_SETTINGS.lots)),
+        dollarsPerPointPerLot: Math.max(0.1, Number(merged.dollarsPerPointPerLot) || DEFAULT_SETTINGS.dollarsPerPointPerLot),
+        providerSymbol: String(merged.providerSymbol || DEFAULT_SETTINGS.providerSymbol).trim() || DEFAULT_SETTINGS.providerSymbol,
+        providerPollMs: DEFAULT_SETTINGS.providerPollMs,
+      };
+    }
+
+    function getSettings() {
+      return normalizeSettings(state?.settings);
+    }
+
+    function candleSeconds() {
+      return getSettings().timeframeMinutes * 60;
+    }
+
+    function dollarsPerPoint(settings = getSettings()) {
+      return settings.lots * settings.dollarsPerPointPerLot;
+    }
+
+    function providerUrl(settings = getSettings()) {
+      return `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(settings.providerSymbol)}?range=1d&interval=1m`;
+    }
+
     function candleStartMs(ts = Date.now()) {
-      return Math.floor(ts / (CANDLE_SECONDS * 1000)) * CANDLE_SECONDS * 1000;
+      const seconds = candleSeconds();
+      return Math.floor(ts / (seconds * 1000)) * seconds * 1000;
     }
 
     function freshState() {
+      const settings = normalizeSettings();
       const price = 28600;
       return {
         version: 1,
+        settings,
         price,
         feedMode: "waiting-real",
         provider: {
           name: "Yahoo Finance chart",
-          symbol: YAHOO_SYMBOL,
+          symbol: settings.providerSymbol,
           status: "waiting",
           lastPrice: null,
           lastFetch: null,
           lastQuoteTime: null,
           lastError: "",
         },
-        startBalance: START_BALANCE,
-        balance: START_BALANCE,
+        startBalance: settings.startBalance,
+        balance: settings.startBalance,
         realizedPnl: 0,
         openTrade: null,
         trades: [],
@@ -636,19 +791,20 @@
 
     function createCandle(startMs, openPrice) {
       const now = Date.now();
+      const settings = getSettings();
       return {
         startMs,
         start: clock(startMs),
-        decisionMs: startMs + DECISION_SECONDS * 1000,
-        decisionTime: clock(startMs + DECISION_SECONDS * 1000),
-        endMs: startMs + CANDLE_SECONDS * 1000,
+        decisionMs: startMs + settings.decisionSeconds * 1000,
+        decisionTime: clock(startMs + settings.decisionSeconds * 1000),
+        endMs: startMs + settings.timeframeMinutes * 60 * 1000,
         open: round(openPrice),
         high: round(openPrice),
         low: round(openPrice),
         close: round(openPrice),
         decisionChecked: false,
         decision: "WAIT",
-        reason: "Waiting for the 180-second decision point.",
+        reason: `Waiting for the ${settings.decisionSeconds}-second decision point.`,
         counterWick: 0,
         elapsedSeconds: Math.max(0, Math.floor((now - startMs) / 1000)),
       };
@@ -658,8 +814,22 @@
       try {
         const raw = localStorage.getItem(STORE_KEY);
         if (!raw) return freshState();
-        const state = JSON.parse(raw);
-        return { ...freshState(), ...state };
+        const loaded = JSON.parse(raw);
+        const base = freshState();
+        const settings = normalizeSettings(loaded.settings);
+        const provider = {
+          ...base.provider,
+          ...(loaded.provider || {}),
+          symbol: settings.providerSymbol,
+        };
+        return {
+          ...base,
+          ...loaded,
+          settings,
+          provider,
+          startBalance: loaded.startBalance || settings.startBalance,
+          balance: Number.isFinite(Number(loaded.balance)) ? Number(loaded.balance) : settings.startBalance,
+        };
       } catch {
         return freshState();
       }
@@ -721,8 +891,9 @@
     }
 
     async function pollYahoo() {
+      const settings = getSettings();
       try {
-        const response = await fetch(`${YAHOO_URL}&t=${Date.now()}`, { cache: "no-store" });
+        const response = await fetch(`${providerUrl(settings)}&t=${Date.now()}`, { cache: "no-store" });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const payload = await response.json();
         const result = payload.chart?.result?.[0];
@@ -746,7 +917,7 @@
         state.feedMode = "real-yahoo";
         state.provider = {
           name: "Yahoo Finance chart",
-          symbol: YAHOO_SYMBOL,
+          symbol: settings.providerSymbol,
           status: "live",
           lastPrice: price,
           lastFetch: clock(),
@@ -767,7 +938,7 @@
       if (Date.now() >= state.candle.decisionMs) {
         state.candle.decisionChecked = true;
         state.candle.decision = "SKIP";
-        state.candle.reason = "Skipped: real data feed started after this candle's 180-second checkpoint.";
+        state.candle.reason = `Skipped: real data feed started after this candle's ${getSettings().decisionSeconds}-second checkpoint.`;
       }
     }
 
@@ -800,13 +971,14 @@
 
     function openPaperTrade(side, entry) {
       if (state.openTrade) return "blocked_existing_position";
+      const settings = getSettings();
       const trade = {
         id: state.trades.length + 1,
         symbol: "NAS100USD",
         side,
         entry: round(entry),
-        lots: LOTS,
-        dollarsPerPoint: DOLLARS_PER_POINT,
+        lots: settings.lots,
+        dollarsPerPoint: dollarsPerPoint(settings),
         openedAt: nowIso(),
         sourceCandle: state.candle.start,
         status: "OPEN",
@@ -823,7 +995,7 @@
       state.openTrade = trade;
       state.trades.unshift(trade);
       state.trades = state.trades.slice(0, 50);
-      recordTransaction("OPEN", trade, entry, "strict 180s wick rule passed");
+      recordTransaction("OPEN", trade, entry, `strict ${settings.decisionSeconds}s wick rule passed`);
       return "paper_trade_opened";
     }
 
@@ -831,7 +1003,7 @@
       if (!state.openTrade) return;
       const trade = state.openTrade;
       const points = trade.side === "BUY" ? exitPrice - trade.entry : trade.entry - exitPrice;
-      const pnl = points * DOLLARS_PER_POINT;
+      const pnl = points * Number(trade.dollarsPerPoint || dollarsPerPoint());
       state.balance += pnl;
       state.realizedPnl += pnl;
       trade.status = "CLOSED";
@@ -853,18 +1025,19 @@
       const trade = state.openTrade;
       if (!trade) return;
       const points = trade.side === "BUY" ? state.price - trade.entry : trade.entry - state.price;
-      const pnl = points * DOLLARS_PER_POINT;
+      const settings = getSettings();
+      const pnl = points * Number(trade.dollarsPerPoint || dollarsPerPoint(settings));
       trade.unrealizedPoints = round(points);
       trade.unrealizedPnl = round(pnl);
       trade.lastPrice = round(state.price);
       trade.state = pnl > 0 ? "positive" : pnl < 0 ? "negative" : "flat";
       trade.bestPoints = round(Math.max(trade.bestPoints || 0, points));
-      if (trade.bestPoints >= SECOND_TRAIL) {
+      if (trade.bestPoints >= settings.secondTrailPoints) {
         trade.trailingStage = "second";
-        trade.trailingStopPoints = SECOND_TRAIL;
-      } else if (trade.bestPoints >= FIRST_TRAIL) {
+        trade.trailingStopPoints = settings.secondTrailPoints;
+      } else if (trade.bestPoints >= settings.firstTrailPoints) {
         trade.trailingStage = "first";
-        trade.trailingStopPoints = FIRST_TRAIL;
+        trade.trailingStopPoints = settings.firstTrailPoints;
       }
       trade.trailingActive = trade.trailingStage !== "none";
     }
@@ -872,18 +1045,20 @@
     function enforceExits() {
       const trade = state.openTrade;
       if (!trade) return;
-      if (trade.unrealizedPoints <= -STOP_LOSS) {
-        closeOpenTrade(state.price, "20 point stop loss reached");
+      const settings = getSettings();
+      if (trade.unrealizedPoints <= -settings.stopLossPoints) {
+        closeOpenTrade(state.price, `${settings.stopLossPoints} point stop loss reached`);
       } else if (trade.trailingActive && trade.unrealizedPoints < trade.trailingStopPoints) {
         const reason = trade.trailingStage === "first"
-          ? "first 30 point trailing protection reached"
-          : "second 50 point trailing protection reached";
+          ? `first ${settings.firstTrailPoints} point trailing protection reached`
+          : `second ${settings.secondTrailPoints} point trailing protection reached`;
         closeOpenTrade(state.price, reason);
       }
     }
 
     function evaluateDecision() {
       if (state.candle.decisionChecked || Date.now() < state.candle.decisionMs) return;
+      const settings = getSettings();
       const candle = state.candle;
       let side = "SKIP";
       let candleStructure = "flat";
@@ -897,7 +1072,7 @@
         candleStructure = "bearish";
         counterWick = Math.max(0, candle.high - candle.open);
       }
-      const allowed = side !== "SKIP" && counterWick <= MAX_COUNTER_WICK;
+      const allowed = side !== "SKIP" && counterWick <= settings.maxCounterWick;
       candle.decisionChecked = true;
       candle.decision = allowed ? side : "SKIP";
       candle.reason = allowed
@@ -928,7 +1103,7 @@
         state.price = nextSimPrice();
       }
       if (startMs !== state.candle.startMs) {
-        closeOpenTrade(state.price, "15m candle closed");
+        closeOpenTrade(state.price, `${getSettings().timeframeMinutes}m candle closed`);
         state.candle = createCandle(startMs, state.price);
       }
       state.candle.high = round(Math.max(state.candle.high, state.price));
@@ -944,12 +1119,13 @@
 
     function renderPosition(trade) {
       const target = document.querySelector("#position");
+      const settings = getSettings();
       if (!trade) {
         target.innerHTML = `
           <div class="field"><span>Status</span><strong class="muted">Waiting for next signal</strong></div>
-          <div class="field"><span>Lots</span><strong>5</strong></div>
-          <div class="field"><span>Exposure</span><strong>$5 / point</strong></div>
-          <div class="field"><span>Trailing</span><strong>+30 then +50</strong></div>
+          <div class="field"><span>Lots</span><strong>${settings.lots}</strong></div>
+          <div class="field"><span>Exposure</span><strong>${usd.format(dollarsPerPoint(settings))} / point</strong></div>
+          <div class="field"><span>Trailing</span><strong>+${settings.firstTrailPoints} then +${settings.secondTrailPoints}</strong></div>
         `;
         return;
       }
@@ -960,7 +1136,7 @@
         <div class="field"><span>Last Price</span><strong>${num.format(trade.lastPrice)}</strong></div>
         <div class="field ${moneyClass(trade.unrealizedPnl)}"><span>Live P/L</span><strong>${usd.format(trade.unrealizedPnl)}</strong></div>
         <div class="field"><span>Points</span><strong>${num.format(trade.unrealizedPoints)} pts</strong></div>
-        <div class="field ${trade.trailingActive ? "positive" : ""}"><span>Trailing</span><strong>${trade.trailingActive ? `${trade.trailingStage} / ${num.format(trade.trailingStopPoints)} pts` : "waiting for +30 pts"}</strong></div>
+        <div class="field ${trade.trailingActive ? "positive" : ""}"><span>Trailing</span><strong>${trade.trailingActive ? `${trade.trailingStage} / ${num.format(trade.trailingStopPoints)} pts` : `waiting for +${settings.firstTrailPoints} pts`}</strong></div>
         <div class="field"><span>Best Profit</span><strong>${num.format(trade.bestPoints || 0)} pts</strong></div>
       `;
     }
@@ -1063,8 +1239,9 @@
     function renderAgent() {
       const trade = state.openTrade;
       const candle = state.candle;
+      const settings = getSettings();
       const liveWick = candle.decisionChecked ? candle.counterWick : activeCounterWick();
-      const wickPassed = liveWick <= MAX_COUNTER_WICK;
+      const wickPassed = liveWick <= settings.maxCounterWick;
       const currentStructure = structure();
       const secondsToDecision = Math.max(0, Math.floor((candle.decisionMs - Date.now()) / 1000));
       const secondsToClose = Math.max(0, Math.floor((candle.endMs - Date.now()) / 1000));
@@ -1075,7 +1252,7 @@
       document.querySelector("#actionText").textContent = candle.decision;
       document.querySelector("#actionHelp").textContent = candle.reason;
       document.querySelector("#wickText").textContent = wickPassed ? "PASS" : "FAIL";
-      document.querySelector("#wickHelp").textContent = `${num.format(liveWick)} of ${num.format(MAX_COUNTER_WICK)} allowed points`;
+      document.querySelector("#wickHelp").textContent = `${num.format(liveWick)} of ${num.format(settings.maxCounterWick)} allowed points`;
       document.querySelector("#structureText").textContent = currentStructure;
       document.querySelector("#structureHelp").textContent = currentStructure === "BULLISH"
         ? "Current price is above the candle open."
@@ -1090,6 +1267,11 @@
       document.querySelector("#closePrice").textContent = num.format(candle.close);
       document.querySelector("#counterWick").textContent = `${num.format(liveWick)} pts`;
       document.querySelector("#providerStatus").textContent = `${state.provider.symbol} / ${state.provider.status}`;
+      document.querySelector("#candleWatchTitle").textContent = `${settings.timeframeMinutes}m Candle Watch`;
+      document.querySelector("#ruleEntry").textContent = `${settings.decisionSeconds}s strict candle check`;
+      document.querySelector("#ruleWick").textContent = `No entry above ${settings.maxCounterWick} points`;
+      document.querySelector("#ruleProtection").textContent = `+${settings.firstTrailPoints} then +${settings.secondTrailPoints}`;
+      document.querySelector("#ruleStop").textContent = `-${settings.stopLossPoints} points`;
       document.querySelector("#decisionMetric").className = candle.decisionChecked ? "card warning" : "card attention";
       document.querySelector("#agentPnlMetric").className = `card ${trade ? moneyClass(trade.unrealizedPnl) : ""}`;
       document.querySelector("#actionCard").className = `focus-card ${candle.decision === "BUY" ? "positive" : candle.decision === "SELL" ? "negative" : candle.decision === "SKIP" ? "warning" : "attention"}`;
@@ -1099,6 +1281,7 @@
 
     function render() {
       const trade = state.openTrade;
+      const settings = getSettings();
       const openUnrealized = trade ? Number(trade.unrealizedPnl || 0) : 0;
       const equity = state.balance + openUnrealized;
       const closed = state.trades.filter((tradeItem) => tradeItem.status === "CLOSED");
@@ -1116,6 +1299,14 @@
       document.querySelector("#feedBadge").textContent = `feed ${state.feedMode}`;
       document.querySelector("#providerBadge").textContent = `${state.provider.name}: ${state.provider.symbol}`;
       document.querySelector("#runtimeBadge").textContent = `${state.provider.status} / localStorage`;
+      document.querySelector("#timeframeBadge").textContent = `${settings.timeframeMinutes}m candles`;
+      document.querySelector("#decisionBadge").textContent = `${settings.decisionSeconds}s decision`;
+      document.querySelector("#wickBadge").textContent = `strict wick <= ${settings.maxCounterWick}`;
+      document.querySelector("#firstTrailBadge").textContent = `first trail +${settings.firstTrailPoints}`;
+      document.querySelector("#secondTrailBadge").textContent = `second trail +${settings.secondTrailPoints}`;
+      document.querySelector("#stopBadge").textContent = `SL -${settings.stopLossPoints} pts`;
+      document.querySelector("#lotsBadge").textContent = `${settings.lots} lots`;
+      document.querySelector("#pointValueBadge").textContent = `${usd.format(dollarsPerPoint(settings))} / point`;
       renderPosition(trade);
       renderOutcomes();
       renderTransactions();
@@ -1125,8 +1316,99 @@
     function switchView(view) {
       document.querySelector("#accountView").classList.toggle("active", view === "account");
       document.querySelector("#agentView").classList.toggle("active", view === "agent");
+      document.querySelector("#settingsView").classList.toggle("active", view === "settings");
       document.querySelector("#accountNav").classList.toggle("active", view === "account");
       document.querySelector("#agentNav").classList.toggle("active", view === "agent");
+      document.querySelector("#settingsNav").classList.toggle("active", view === "settings");
+    }
+
+    function syncSettingsForm() {
+      const settings = getSettings();
+      document.querySelector("#settingTimeframe").value = String(settings.timeframeMinutes);
+      document.querySelector("#settingDecisionSeconds").value = settings.decisionSeconds;
+      document.querySelector("#settingMaxWick").value = settings.maxCounterWick;
+      document.querySelector("#settingStopLoss").value = settings.stopLossPoints;
+      document.querySelector("#settingFirstTrail").value = settings.firstTrailPoints;
+      document.querySelector("#settingSecondTrail").value = settings.secondTrailPoints;
+      document.querySelector("#settingLots").value = settings.lots;
+      document.querySelector("#settingDollarsPerLot").value = settings.dollarsPerPointPerLot;
+      document.querySelector("#settingProviderSymbol").value = settings.providerSymbol;
+    }
+
+    function readSettingsForm() {
+      return normalizeSettings({
+        timeframeMinutes: Number(document.querySelector("#settingTimeframe").value),
+        decisionSeconds: Number(document.querySelector("#settingDecisionSeconds").value),
+        maxCounterWick: Number(document.querySelector("#settingMaxWick").value),
+        stopLossPoints: Number(document.querySelector("#settingStopLoss").value),
+        firstTrailPoints: Number(document.querySelector("#settingFirstTrail").value),
+        secondTrailPoints: Number(document.querySelector("#settingSecondTrail").value),
+        lots: Number(document.querySelector("#settingLots").value),
+        dollarsPerPointPerLot: Number(document.querySelector("#settingDollarsPerLot").value),
+        providerSymbol: document.querySelector("#settingProviderSymbol").value,
+      });
+    }
+
+    function resetActiveCandle(reason) {
+      state.candle = createCandle(candleStartMs(), state.price);
+      state.decisions.unshift({
+        time: nowIso(),
+        candle: state.candle.start,
+        side: "WAIT",
+        open: state.candle.open,
+        priceAtDecision: state.candle.close,
+        high: state.candle.high,
+        low: state.candle.low,
+        counterWick: 0,
+        reason,
+        strictModePassed: false,
+      });
+      state.decisions = state.decisions.slice(0, 30);
+    }
+
+    function saveSettingsFromForm() {
+      const previous = getSettings();
+      const next = readSettingsForm();
+      state.settings = next;
+      const flowChanged = previous.timeframeMinutes !== next.timeframeMinutes
+        || previous.decisionSeconds !== next.decisionSeconds;
+      const providerChanged = previous.providerSymbol !== next.providerSymbol;
+      if (providerChanged) {
+        state.provider = {
+          name: "Yahoo Finance chart",
+          symbol: next.providerSymbol,
+          status: "waiting",
+          lastPrice: null,
+          lastFetch: null,
+          lastQuoteTime: null,
+          lastError: "",
+        };
+        state.feedMode = "waiting-real";
+      }
+      if (flowChanged || providerChanged) {
+        resetActiveCandle("Settings changed; active candle restarted for a clean paper test.");
+      }
+      saveState();
+      syncSettingsForm();
+      render();
+    }
+
+    function restoreDefaultSettings() {
+      state.settings = normalizeSettings();
+      state.provider = {
+        name: "Yahoo Finance chart",
+        symbol: state.settings.providerSymbol,
+        status: "waiting",
+        lastPrice: null,
+        lastFetch: null,
+        lastQuoteTime: null,
+        lastError: "",
+      };
+      state.feedMode = "waiting-real";
+      resetActiveCandle("Default settings restored; active candle restarted.");
+      saveState();
+      syncSettingsForm();
+      render();
     }
 
     function exportState() {
@@ -1144,19 +1426,27 @@
       localStorage.removeItem(STORE_KEY);
       state = freshState();
       saveState();
+      syncSettingsForm();
       render();
     }
 
-    let state = loadState();
+    state = loadState();
+    syncSettingsForm();
     document.querySelector("#accountNav").addEventListener("click", () => switchView("account"));
     document.querySelector("#agentNav").addEventListener("click", () => switchView("agent"));
+    document.querySelector("#settingsNav").addEventListener("click", () => {
+      syncSettingsForm();
+      switchView("settings");
+    });
     document.querySelector("#exportBtn").addEventListener("click", exportState);
     document.querySelector("#resetBtn").addEventListener("click", resetState);
+    document.querySelector("#saveSettingsBtn").addEventListener("click", saveSettingsFromForm);
+    document.querySelector("#resetSettingsBtn").addEventListener("click", restoreDefaultSettings);
     pollYahoo().then(() => {
       tick();
       render();
     });
-    setInterval(pollYahoo, POLL_MS);
+    setInterval(pollYahoo, DEFAULT_SETTINGS.providerPollMs);
     setInterval(tick, 1000);
     render();
   </script>
