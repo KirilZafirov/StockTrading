@@ -1,0 +1,1008 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NAS100 Static Paper Agent</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #101113;
+      --panel: #181b20;
+      --soft: #20252d;
+      --line: #2d3440;
+      --text: #f7f8fb;
+      --muted: #9ea7b3;
+      --green: #22c55e;
+      --red: #ef4444;
+      --yellow: #f0b429;
+      --blue: #38bdf8;
+      --green-bg: rgba(34, 197, 94, 0.12);
+      --red-bg: rgba(239, 68, 68, 0.12);
+      --yellow-bg: rgba(240, 180, 41, 0.12);
+      --blue-bg: rgba(56, 189, 248, 0.1);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--line);
+      background: #15171b;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+
+    h1, h2 {
+      margin: 0;
+      letter-spacing: 0;
+    }
+
+    h1 {
+      font-size: 18px;
+    }
+
+    h2 {
+      font-size: 14px;
+      margin-bottom: 12px;
+    }
+
+    nav {
+      display: flex;
+      gap: 8px;
+      margin-top: 9px;
+      flex-wrap: wrap;
+    }
+
+    nav button, .tool-btn {
+      min-height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 0 11px;
+      color: var(--muted);
+      background: var(--panel);
+      font: inherit;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    nav button.active {
+      color: var(--blue);
+      border-color: rgba(56, 189, 248, 0.5);
+      background: var(--blue-bg);
+    }
+
+    .meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 13px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.12);
+    }
+
+    main {
+      padding: 22px 24px 34px;
+    }
+
+    .view {
+      display: none;
+    }
+
+    .view.active {
+      display: block;
+    }
+
+    .account-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .card, .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    .card {
+      min-height: 96px;
+      padding: 14px;
+    }
+
+    .card span, .field span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+
+    .card strong {
+      display: block;
+      font-size: 24px;
+      line-height: 1.1;
+      overflow-wrap: anywhere;
+    }
+
+    .positive {
+      border-color: rgba(34, 197, 94, 0.5);
+      background: var(--green-bg);
+    }
+
+    .negative {
+      border-color: rgba(239, 68, 68, 0.5);
+      background: var(--red-bg);
+    }
+
+    .attention {
+      border-color: rgba(56, 189, 248, 0.45);
+      background: var(--blue-bg);
+    }
+
+    .warning {
+      border-color: rgba(240, 180, 41, 0.5);
+      background: var(--yellow-bg);
+    }
+
+    .rule-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 26px;
+      padding: 0 9px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--soft);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .buy, .win {
+      color: var(--green);
+      border-color: rgba(34, 197, 94, 0.5);
+      background: var(--green-bg);
+    }
+
+    .sell, .loss {
+      color: var(--red);
+      border-color: rgba(239, 68, 68, 0.5);
+      background: var(--red-bg);
+    }
+
+    .open, .wait {
+      color: var(--blue);
+      border-color: rgba(56, 189, 248, 0.45);
+      background: var(--blue-bg);
+    }
+
+    .skip {
+      color: var(--yellow);
+      border-color: rgba(240, 180, 41, 0.5);
+      background: var(--yellow-bg);
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(360px, 0.9fr) minmax(420px, 1.1fr);
+      gap: 14px;
+    }
+
+    .panel {
+      padding: 16px;
+    }
+
+    .position, .candle-grid, .focus-strip {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .focus-strip {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      margin-bottom: 14px;
+    }
+
+    .field, .focus-card {
+      min-height: 78px;
+      background: var(--soft);
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 11px;
+    }
+
+    .focus-card strong, .field strong {
+      display: block;
+      font-size: 18px;
+      overflow-wrap: anywhere;
+    }
+
+    .focus-card p {
+      color: var(--muted);
+      margin: 8px 0 0;
+      font-size: 13px;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    table {
+      width: 100%;
+      min-width: 820px;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      padding: 11px 12px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      white-space: nowrap;
+      font-size: 13px;
+    }
+
+    th {
+      color: var(--muted);
+      background: #151920;
+      font-weight: 700;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .green-text {
+      color: var(--green);
+      font-weight: 800;
+    }
+
+    .red-text {
+      color: var(--red);
+      font-weight: 800;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+
+    @media (max-width: 1100px) {
+      .account-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .layout, .focus-strip {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 620px) {
+      header {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .account-grid, .position, .candle-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>NAS100 Static Paper Agent</h1>
+      <nav aria-label="Views">
+        <button id="accountNav" class="active" type="button">Paper Account</button>
+        <button id="agentNav" type="button">Candle Agent</button>
+      </nav>
+    </div>
+    <div class="meta">
+      <span class="dot"></span>
+      <span>Updated <strong id="updated">--:--:--</strong></span>
+      <span id="runtimeBadge">Browser mode</span>
+    </div>
+  </header>
+
+  <main>
+    <section id="accountView" class="view active">
+      <section class="account-grid">
+        <div class="card attention"><span>Starting Balance</span><strong id="startBalance">$20,000.00</strong></div>
+        <div id="equityCard" class="card"><span>Equity</span><strong id="equity">$--</strong></div>
+        <div id="totalCard" class="card"><span>Total P/L</span><strong id="totalPnl">$--</strong></div>
+        <div id="openCard" class="card"><span>Open Trade P/L</span><strong id="openPnl">$--</strong></div>
+        <div class="card"><span>Win Rate</span><strong id="winRate">--</strong></div>
+      </section>
+
+      <div class="rule-strip">
+        <span class="badge open">NAS100USD</span>
+        <span id="feedBadge" class="badge open">feed --</span>
+        <span id="providerBadge" class="badge open">provider --</span>
+        <span class="badge open">localStorage</span>
+        <span class="badge open">15m candles</span>
+        <span class="badge open">180s decision</span>
+        <span class="badge open">strict wick <= 20</span>
+        <span class="badge win">first trail +30</span>
+        <span class="badge win">second trail +50</span>
+        <span class="badge loss">SL -20 pts</span>
+        <span class="badge open">5 lots</span>
+        <span class="badge open">$5 / point</span>
+      </div>
+
+      <section class="layout">
+        <div class="panel">
+          <h2>Current Paper Trade</h2>
+          <div id="position" class="position"></div>
+          <div class="toolbar">
+            <button id="exportBtn" class="tool-btn" type="button">Export JSON</button>
+            <button id="resetBtn" class="tool-btn" type="button">Reset Local State</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Every Outcome</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Status</th>
+                  <th>Side</th>
+                  <th>Entry</th>
+                  <th>Last/Exit</th>
+                  <th>Points</th>
+                  <th>P/L</th>
+                  <th>Outcome</th>
+                  <th>Opened</th>
+                </tr>
+              </thead>
+              <tbody id="outcomes"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" style="margin-top: 14px;">
+        <h2>Transaction Ledger</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Time</th>
+                <th>Type</th>
+                <th>Trade</th>
+                <th>Side</th>
+                <th>Price</th>
+                <th>Lots</th>
+                <th>Points</th>
+                <th>P/L</th>
+                <th>Balance</th>
+                <th>Reason</th>
+              </tr>
+            </thead>
+            <tbody id="transactions"></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+
+    <section id="agentView" class="view">
+      <section class="account-grid">
+        <div class="card attention"><span>Symbol</span><strong>NAS100USD</strong></div>
+        <div class="card"><span>Current Price</span><strong id="price">--</strong></div>
+        <div id="decisionMetric" class="card"><span>Decision Status</span><strong id="decisionStatus">--</strong></div>
+        <div id="agentPnlMetric" class="card"><span>Open P/L</span><strong id="agentOpenPnl">--</strong></div>
+        <div class="card"><span>Next Candle</span><strong id="closeCountdown">--</strong></div>
+      </section>
+
+      <section class="focus-strip">
+        <div id="actionCard" class="focus-card"><span>Action</span><strong id="actionText">WAIT</strong><p id="actionHelp">--</p></div>
+        <div id="wickCard" class="focus-card"><span>Wick Filter</span><strong id="wickText">--</strong><p id="wickHelp">--</p></div>
+        <div id="structureCard" class="focus-card"><span>Candle Structure</span><strong id="structureText">--</strong><p id="structureHelp">--</p></div>
+      </section>
+
+      <section class="layout">
+        <div class="panel">
+          <h2>15m Candle Watch</h2>
+          <div class="candle-grid">
+            <div class="field"><span>Start</span><strong id="candleStart">--</strong></div>
+            <div class="field"><span>Decision Time</span><strong id="decisionTime">--</strong></div>
+            <div class="field"><span>Open</span><strong id="openPrice">--</strong></div>
+            <div class="field"><span>High</span><strong id="highPrice">--</strong></div>
+            <div class="field"><span>Low</span><strong id="lowPrice">--</strong></div>
+            <div class="field"><span>Current</span><strong id="closePrice">--</strong></div>
+            <div class="field"><span>Counter Wick</span><strong id="counterWick">--</strong></div>
+            <div class="field"><span>Provider</span><strong id="providerStatus">--</strong></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Rules</h2>
+          <div class="field"><span>Entry</span><strong>180s strict candle check</strong></div>
+          <div class="field"><span>Wick</span><strong>No entry above 20 points</strong></div>
+          <div class="field"><span>Protection</span><strong>+30 then +50</strong></div>
+          <div class="field"><span>Stop</span><strong>-20 points</strong></div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const STORE_KEY = "nas100-static-paper-agent-v1";
+    const CANDLE_SECONDS = 15 * 60;
+    const DECISION_SECONDS = 180;
+    const MAX_COUNTER_WICK = 20;
+    const FIRST_TRAIL = 30;
+    const SECOND_TRAIL = 50;
+    const STOP_LOSS = 20;
+    const START_BALANCE = 20000;
+    const LOTS = 5;
+    const DOLLARS_PER_POINT = 5;
+    const YAHOO_SYMBOL = "NQ=F";
+    const YAHOO_URL = "https://query1.finance.yahoo.com/v8/finance/chart/NQ%3DF?range=1d&interval=1m";
+    const POLL_MS = 5000;
+
+    const usd = new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" });
+    const num = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 2 });
+
+    function nowIso() {
+      return new Date().toISOString();
+    }
+
+    function clock(epochMs = Date.now()) {
+      return new Date(epochMs).toLocaleTimeString([], { hour12: false });
+    }
+
+    function candleStartMs(ts = Date.now()) {
+      return Math.floor(ts / (CANDLE_SECONDS * 1000)) * CANDLE_SECONDS * 1000;
+    }
+
+    function freshState() {
+      const price = 28600;
+      return {
+        version: 1,
+        price,
+        feedMode: "waiting-real",
+        provider: {
+          name: "Yahoo Finance chart",
+          symbol: YAHOO_SYMBOL,
+          status: "waiting",
+          lastPrice: null,
+          lastFetch: null,
+          lastQuoteTime: null,
+          lastError: "",
+        },
+        startBalance: START_BALANCE,
+        balance: START_BALANCE,
+        realizedPnl: 0,
+        openTrade: null,
+        trades: [],
+        transactions: [],
+        decisions: [],
+        candle: createCandle(candleStartMs(), price),
+        lastSimTick: Date.now(),
+      };
+    }
+
+    function createCandle(startMs, openPrice) {
+      const now = Date.now();
+      return {
+        startMs,
+        start: clock(startMs),
+        decisionMs: startMs + DECISION_SECONDS * 1000,
+        decisionTime: clock(startMs + DECISION_SECONDS * 1000),
+        endMs: startMs + CANDLE_SECONDS * 1000,
+        open: round(openPrice),
+        high: round(openPrice),
+        low: round(openPrice),
+        close: round(openPrice),
+        decisionChecked: false,
+        decision: "WAIT",
+        reason: "Waiting for the 180-second decision point.",
+        counterWick: 0,
+        elapsedSeconds: Math.max(0, Math.floor((now - startMs) / 1000)),
+      };
+    }
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORE_KEY);
+        if (!raw) return freshState();
+        const state = JSON.parse(raw);
+        return { ...freshState(), ...state };
+      } catch {
+        return freshState();
+      }
+    }
+
+    function saveState() {
+      localStorage.setItem(STORE_KEY, JSON.stringify(state));
+    }
+
+    function round(value) {
+      return Math.round(Number(value) * 100) / 100;
+    }
+
+    function moneyClass(value) {
+      if (value > 0) return "positive";
+      if (value < 0) return "negative";
+      return "";
+    }
+
+    function textClass(value) {
+      if (value > 0) return "green-text";
+      if (value < 0) return "red-text";
+      return "muted";
+    }
+
+    function sideBadge(side) {
+      return `<span class="badge ${side === "BUY" ? "buy" : "sell"}">${side}</span>`;
+    }
+
+    function statusBadge(trade) {
+      if (trade.status === "OPEN") return `<span class="badge open">OPEN</span>`;
+      if (trade.outcome === "WIN") return `<span class="badge win">CLOSED</span>`;
+      if (trade.outcome === "LOSS") return `<span class="badge loss">CLOSED</span>`;
+      return `<span class="badge">CLOSED</span>`;
+    }
+
+    function outcomeBadge(trade) {
+      if (trade.status === "OPEN") return `<span class="badge open">${trade.state || "flat"}</span>`;
+      if (trade.outcome === "WIN") return `<span class="badge win">WIN</span>`;
+      if (trade.outcome === "LOSS") return `<span class="badge loss">LOSS</span>`;
+      return `<span class="badge">FLAT</span>`;
+    }
+
+    function secondsText(value) {
+      const seconds = Math.max(0, Number(value || 0));
+      return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+    }
+
+    function structure() {
+      if (state.candle.close > state.candle.open) return "BULLISH";
+      if (state.candle.close < state.candle.open) return "BEARISH";
+      return "FLAT";
+    }
+
+    function activeCounterWick() {
+      if (state.candle.close > state.candle.open) return Math.max(0, state.candle.open - state.candle.low);
+      if (state.candle.close < state.candle.open) return Math.max(0, state.candle.high - state.candle.open);
+      return 0;
+    }
+
+    async function pollYahoo() {
+      try {
+        const response = await fetch(`${YAHOO_URL}&t=${Date.now()}`, { cache: "no-store" });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const payload = await response.json();
+        const result = payload.chart?.result?.[0];
+        const closes = result?.indicators?.quote?.[0]?.close || [];
+        const timestamps = result?.timestamp || [];
+        let latest = null;
+        for (let i = closes.length - 1; i >= 0; i -= 1) {
+          if (closes[i] !== null && closes[i] !== undefined) {
+            latest = { price: Number(closes[i]), ts: timestamps[i] };
+            break;
+          }
+        }
+        if (!latest) throw new Error("No valid Yahoo close price");
+
+        const price = round(latest.price);
+        const wasReal = state.feedMode === "real-yahoo";
+        if (!wasReal && Math.abs(price - state.price) > 1000) {
+          resetToRealFeed(price);
+        }
+        state.price = price;
+        state.feedMode = "real-yahoo";
+        state.provider = {
+          name: "Yahoo Finance chart",
+          symbol: YAHOO_SYMBOL,
+          status: "live",
+          lastPrice: price,
+          lastFetch: clock(),
+          lastQuoteTime: clock(latest.ts * 1000),
+          lastError: "",
+        };
+      } catch (error) {
+        state.provider.status = state.provider.lastPrice ? "stale" : "fallback";
+        state.provider.lastError = String(error).slice(0, 160);
+        state.feedMode = state.provider.lastPrice ? "real-yahoo-stale" : "simulated-fallback";
+      }
+    }
+
+    function resetToRealFeed(price) {
+      const startMs = candleStartMs();
+      if (state.openTrade) closeOpenTrade(price, "real data feed reset");
+      state.candle = createCandle(startMs, price);
+      if (Date.now() >= state.candle.decisionMs) {
+        state.candle.decisionChecked = true;
+        state.candle.decision = "SKIP";
+        state.candle.reason = "Skipped: real data feed started after this candle's 180-second checkpoint.";
+      }
+    }
+
+    function nextSimPrice() {
+      const elapsed = Math.max(1, (Date.now() - state.lastSimTick) / 1000);
+      const drift = (Math.random() - 0.5) * 3.5 * elapsed;
+      const pulse = Math.sin(Date.now() / 14000) * Math.random() * 2;
+      state.lastSimTick = Date.now();
+      return round(Math.max(1000, state.price + drift + pulse));
+    }
+
+    function recordTransaction(type, trade, price, reason, points = 0, pnl = 0) {
+      state.transactions.unshift({
+        id: state.transactions.length + 1,
+        time: nowIso(),
+        type,
+        tradeId: trade.id,
+        symbol: trade.symbol,
+        side: trade.side,
+        price: round(price),
+        lots: trade.lots,
+        points: round(points),
+        pnl: round(pnl),
+        balance: round(state.balance),
+        reason,
+      });
+      state.transactions = state.transactions.slice(0, 200);
+      saveState();
+    }
+
+    function openPaperTrade(side, entry) {
+      if (state.openTrade) return "blocked_existing_position";
+      const trade = {
+        id: state.trades.length + 1,
+        symbol: "NAS100USD",
+        side,
+        entry: round(entry),
+        lots: LOTS,
+        dollarsPerPoint: DOLLARS_PER_POINT,
+        openedAt: nowIso(),
+        sourceCandle: state.candle.start,
+        status: "OPEN",
+        lastPrice: round(entry),
+        unrealizedPoints: 0,
+        unrealizedPnl: 0,
+        bestPoints: 0,
+        trailingActive: false,
+        trailingStage: "none",
+        trailingStopPoints: null,
+        state: "flat",
+        mode: "paper",
+      };
+      state.openTrade = trade;
+      state.trades.unshift(trade);
+      state.trades = state.trades.slice(0, 50);
+      recordTransaction("OPEN", trade, entry, "strict 180s wick rule passed");
+      return "paper_trade_opened";
+    }
+
+    function closeOpenTrade(exitPrice, reason) {
+      if (!state.openTrade) return;
+      const trade = state.openTrade;
+      const points = trade.side === "BUY" ? exitPrice - trade.entry : trade.entry - exitPrice;
+      const pnl = points * DOLLARS_PER_POINT;
+      state.balance += pnl;
+      state.realizedPnl += pnl;
+      trade.status = "CLOSED";
+      trade.closedAt = nowIso();
+      trade.exit = round(exitPrice);
+      trade.closeReason = reason;
+      trade.realizedPoints = round(points);
+      trade.realizedPnl = round(pnl);
+      trade.unrealizedPoints = 0;
+      trade.unrealizedPnl = 0;
+      trade.lastPrice = round(exitPrice);
+      trade.outcome = pnl > 0 ? "WIN" : pnl < 0 ? "LOSS" : "FLAT";
+      trade.state = pnl > 0 ? "positive" : pnl < 0 ? "negative" : "flat";
+      recordTransaction("CLOSE", trade, exitPrice, reason, points, pnl);
+      state.openTrade = null;
+    }
+
+    function markToMarket() {
+      const trade = state.openTrade;
+      if (!trade) return;
+      const points = trade.side === "BUY" ? state.price - trade.entry : trade.entry - state.price;
+      const pnl = points * DOLLARS_PER_POINT;
+      trade.unrealizedPoints = round(points);
+      trade.unrealizedPnl = round(pnl);
+      trade.lastPrice = round(state.price);
+      trade.state = pnl > 0 ? "positive" : pnl < 0 ? "negative" : "flat";
+      trade.bestPoints = round(Math.max(trade.bestPoints || 0, points));
+      if (trade.bestPoints >= SECOND_TRAIL) {
+        trade.trailingStage = "second";
+        trade.trailingStopPoints = SECOND_TRAIL;
+      } else if (trade.bestPoints >= FIRST_TRAIL) {
+        trade.trailingStage = "first";
+        trade.trailingStopPoints = FIRST_TRAIL;
+      }
+      trade.trailingActive = trade.trailingStage !== "none";
+    }
+
+    function enforceExits() {
+      const trade = state.openTrade;
+      if (!trade) return;
+      if (trade.unrealizedPoints <= -STOP_LOSS) {
+        closeOpenTrade(state.price, "20 point stop loss reached");
+      } else if (trade.trailingActive && trade.unrealizedPoints < trade.trailingStopPoints) {
+        const reason = trade.trailingStage === "first"
+          ? "first 30 point trailing protection reached"
+          : "second 50 point trailing protection reached";
+        closeOpenTrade(state.price, reason);
+      }
+    }
+
+    function evaluateDecision() {
+      if (state.candle.decisionChecked || Date.now() < state.candle.decisionMs) return;
+      const candle = state.candle;
+      let side = "SKIP";
+      let candleStructure = "flat";
+      let counterWick = 0;
+      if (candle.close > candle.open) {
+        side = "BUY";
+        candleStructure = "bullish";
+        counterWick = Math.max(0, candle.open - candle.low);
+      } else if (candle.close < candle.open) {
+        side = "SELL";
+        candleStructure = "bearish";
+        counterWick = Math.max(0, candle.high - candle.open);
+      }
+      const allowed = side !== "SKIP" && counterWick <= MAX_COUNTER_WICK;
+      candle.decisionChecked = true;
+      candle.decision = allowed ? side : "SKIP";
+      candle.reason = allowed
+        ? `${candleStructure} candle; counter wick ${num.format(counterWick)} points.`
+        : `Skipped: ${candleStructure} candle; counter wick ${num.format(counterWick)} points.`;
+      candle.counterWick = round(counterWick);
+      const event = {
+        time: nowIso(),
+        candle: candle.start,
+        side: candle.decision,
+        open: candle.open,
+        priceAtDecision: candle.close,
+        high: candle.high,
+        low: candle.low,
+        counterWick: round(counterWick),
+        reason: candle.reason,
+        strictModePassed: allowed,
+      };
+      if (allowed) event.execution = openPaperTrade(side, candle.close);
+      state.decisions.unshift(event);
+      state.decisions = state.decisions.slice(0, 30);
+      saveState();
+    }
+
+    function tick() {
+      const startMs = candleStartMs();
+      if (state.feedMode === "simulated-fallback" || state.feedMode === "waiting-real") {
+        state.price = nextSimPrice();
+      }
+      if (startMs !== state.candle.startMs) {
+        closeOpenTrade(state.price, "15m candle closed");
+        state.candle = createCandle(startMs, state.price);
+      }
+      state.candle.high = round(Math.max(state.candle.high, state.price));
+      state.candle.low = round(Math.min(state.candle.low, state.price));
+      state.candle.close = round(state.price);
+      state.candle.elapsedSeconds = Math.max(0, Math.floor((Date.now() - state.candle.startMs) / 1000));
+      evaluateDecision();
+      markToMarket();
+      enforceExits();
+      saveState();
+      render();
+    }
+
+    function renderPosition(trade) {
+      const target = document.querySelector("#position");
+      if (!trade) {
+        target.innerHTML = `
+          <div class="field"><span>Status</span><strong class="muted">Waiting for next signal</strong></div>
+          <div class="field"><span>Lots</span><strong>5</strong></div>
+          <div class="field"><span>Exposure</span><strong>$5 / point</strong></div>
+          <div class="field"><span>Trailing</span><strong>+30 then +50</strong></div>
+        `;
+        return;
+      }
+      target.innerHTML = `
+        <div class="field ${trade.side === "BUY" ? "positive" : "negative"}"><span>Side</span><strong>${trade.side}</strong></div>
+        <div class="field"><span>Lots</span><strong>${trade.lots}</strong></div>
+        <div class="field"><span>Entry</span><strong>${num.format(trade.entry)}</strong></div>
+        <div class="field"><span>Last Price</span><strong>${num.format(trade.lastPrice)}</strong></div>
+        <div class="field ${moneyClass(trade.unrealizedPnl)}"><span>Live P/L</span><strong>${usd.format(trade.unrealizedPnl)}</strong></div>
+        <div class="field"><span>Points</span><strong>${num.format(trade.unrealizedPoints)} pts</strong></div>
+        <div class="field ${trade.trailingActive ? "positive" : ""}"><span>Trailing</span><strong>${trade.trailingActive ? `${trade.trailingStage} / ${num.format(trade.trailingStopPoints)} pts` : "waiting for +30 pts"}</strong></div>
+        <div class="field"><span>Best Profit</span><strong>${num.format(trade.bestPoints || 0)} pts</strong></div>
+      `;
+    }
+
+    function renderOutcomes() {
+      const body = document.querySelector("#outcomes");
+      if (!state.trades.length) {
+        body.innerHTML = `<tr><td colspan="9" class="muted">No paper trades yet.</td></tr>`;
+        return;
+      }
+      body.innerHTML = state.trades.map((trade) => {
+        const pnl = trade.status === "OPEN" ? Number(trade.unrealizedPnl || 0) : Number(trade.realizedPnl || 0);
+        const points = trade.status === "OPEN" ? Number(trade.unrealizedPoints || 0) : Number(trade.realizedPoints || 0);
+        const lastOrExit = trade.status === "OPEN" ? trade.lastPrice : trade.exit;
+        return `
+          <tr>
+            <td>${trade.id}</td>
+            <td>${statusBadge(trade)}</td>
+            <td>${sideBadge(trade.side)}</td>
+            <td>${num.format(trade.entry)}</td>
+            <td>${num.format(lastOrExit)}</td>
+            <td class="${textClass(points)}">${num.format(points)}</td>
+            <td class="${textClass(pnl)}">${usd.format(pnl)}</td>
+            <td>${outcomeBadge(trade)}</td>
+            <td>${trade.openedAt}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function renderTransactions() {
+      const body = document.querySelector("#transactions");
+      if (!state.transactions.length) {
+        body.innerHTML = `<tr><td colspan="11" class="muted">No transactions yet.</td></tr>`;
+        return;
+      }
+      body.innerHTML = state.transactions.map((transaction) => `
+        <tr>
+          <td>${transaction.id}</td>
+          <td>${transaction.time}</td>
+          <td><span class="badge ${transaction.type === "OPEN" ? "open" : Number(transaction.pnl) >= 0 ? "win" : "loss"}">${transaction.type}</span></td>
+          <td>${transaction.tradeId}</td>
+          <td>${sideBadge(transaction.side)}</td>
+          <td>${num.format(transaction.price)}</td>
+          <td>${transaction.lots}</td>
+          <td class="${textClass(Number(transaction.points || 0))}">${num.format(transaction.points || 0)}</td>
+          <td class="${textClass(Number(transaction.pnl || 0))}">${usd.format(transaction.pnl || 0)}</td>
+          <td>${usd.format(transaction.balance)}</td>
+          <td>${transaction.reason}</td>
+        </tr>
+      `).join("");
+    }
+
+    function renderAgent() {
+      const trade = state.openTrade;
+      const candle = state.candle;
+      const liveWick = candle.decisionChecked ? candle.counterWick : activeCounterWick();
+      const wickPassed = liveWick <= MAX_COUNTER_WICK;
+      const currentStructure = structure();
+      const secondsToDecision = Math.max(0, Math.floor((candle.decisionMs - Date.now()) / 1000));
+      const secondsToClose = Math.max(0, Math.floor((candle.endMs - Date.now()) / 1000));
+      document.querySelector("#price").textContent = num.format(state.price);
+      document.querySelector("#decisionStatus").textContent = candle.decisionChecked ? `${candle.decision} fired` : `${secondsText(secondsToDecision)} to check`;
+      document.querySelector("#agentOpenPnl").textContent = trade ? `${usd.format(trade.unrealizedPnl)} / ${num.format(trade.unrealizedPoints)} pts` : "--";
+      document.querySelector("#closeCountdown").textContent = secondsText(secondsToClose);
+      document.querySelector("#actionText").textContent = candle.decision;
+      document.querySelector("#actionHelp").textContent = candle.reason;
+      document.querySelector("#wickText").textContent = wickPassed ? "PASS" : "FAIL";
+      document.querySelector("#wickHelp").textContent = `${num.format(liveWick)} of ${num.format(MAX_COUNTER_WICK)} allowed points`;
+      document.querySelector("#structureText").textContent = currentStructure;
+      document.querySelector("#structureHelp").textContent = currentStructure === "BULLISH"
+        ? "Current price is above the candle open."
+        : currentStructure === "BEARISH"
+          ? "Current price is below the candle open."
+          : "Current price is equal to the candle open.";
+      document.querySelector("#candleStart").textContent = candle.start;
+      document.querySelector("#decisionTime").textContent = candle.decisionTime;
+      document.querySelector("#openPrice").textContent = num.format(candle.open);
+      document.querySelector("#highPrice").textContent = num.format(candle.high);
+      document.querySelector("#lowPrice").textContent = num.format(candle.low);
+      document.querySelector("#closePrice").textContent = num.format(candle.close);
+      document.querySelector("#counterWick").textContent = `${num.format(liveWick)} pts`;
+      document.querySelector("#providerStatus").textContent = `${state.provider.symbol} / ${state.provider.status}`;
+      document.querySelector("#decisionMetric").className = candle.decisionChecked ? "card warning" : "card attention";
+      document.querySelector("#agentPnlMetric").className = `card ${trade ? moneyClass(trade.unrealizedPnl) : ""}`;
+      document.querySelector("#actionCard").className = `focus-card ${candle.decision === "BUY" ? "positive" : candle.decision === "SELL" ? "negative" : candle.decision === "SKIP" ? "warning" : "attention"}`;
+      document.querySelector("#wickCard").className = `focus-card ${wickPassed ? "positive" : "negative"}`;
+      document.querySelector("#structureCard").className = `focus-card ${currentStructure === "BULLISH" ? "positive" : currentStructure === "BEARISH" ? "negative" : ""}`;
+    }
+
+    function render() {
+      const trade = state.openTrade;
+      const openUnrealized = trade ? Number(trade.unrealizedPnl || 0) : 0;
+      const equity = state.balance + openUnrealized;
+      const closed = state.trades.filter((tradeItem) => tradeItem.status === "CLOSED");
+      const wins = closed.filter((tradeItem) => tradeItem.outcome === "WIN").length;
+      const winRate = closed.length ? Math.round((wins / closed.length) * 1000) / 10 : 0;
+      document.querySelector("#updated").textContent = clock();
+      document.querySelector("#startBalance").textContent = usd.format(state.startBalance);
+      document.querySelector("#equity").textContent = usd.format(equity);
+      document.querySelector("#totalPnl").textContent = usd.format(equity - state.startBalance);
+      document.querySelector("#openPnl").textContent = usd.format(openUnrealized);
+      document.querySelector("#winRate").textContent = `${winRate}%`;
+      document.querySelector("#equityCard").className = `card ${moneyClass(equity - state.startBalance)}`;
+      document.querySelector("#totalCard").className = `card ${moneyClass(equity - state.startBalance)}`;
+      document.querySelector("#openCard").className = `card ${moneyClass(openUnrealized)}`;
+      document.querySelector("#feedBadge").textContent = `feed ${state.feedMode}`;
+      document.querySelector("#providerBadge").textContent = `${state.provider.name}: ${state.provider.symbol}`;
+      document.querySelector("#runtimeBadge").textContent = `${state.provider.status} / localStorage`;
+      renderPosition(trade);
+      renderOutcomes();
+      renderTransactions();
+      renderAgent();
+    }
+
+    function switchView(view) {
+      document.querySelector("#accountView").classList.toggle("active", view === "account");
+      document.querySelector("#agentView").classList.toggle("active", view === "agent");
+      document.querySelector("#accountNav").classList.toggle("active", view === "account");
+      document.querySelector("#agentNav").classList.toggle("active", view === "agent");
+    }
+
+    function exportState() {
+      const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `nas100-paper-state-${new Date().toISOString().slice(0, 10)}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function resetState() {
+      if (!confirm("Reset local paper state in this browser?")) return;
+      localStorage.removeItem(STORE_KEY);
+      state = freshState();
+      saveState();
+      render();
+    }
+
+    let state = loadState();
+    document.querySelector("#accountNav").addEventListener("click", () => switchView("account"));
+    document.querySelector("#agentNav").addEventListener("click", () => switchView("agent"));
+    document.querySelector("#exportBtn").addEventListener("click", exportState);
+    document.querySelector("#resetBtn").addEventListener("click", resetState);
+    pollYahoo().then(() => {
+      tick();
+      render();
+    });
+    setInterval(pollYahoo, POLL_MS);
+    setInterval(tick, 1000);
+    render();
+  </script>
+</body>
+</html>
