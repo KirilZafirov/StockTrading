@@ -1,0 +1,691 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NAS100 Paper Agent</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #111214;
+      --panel: #181a1f;
+      --soft: #20242b;
+      --line: #2d333d;
+      --text: #f5f7fb;
+      --muted: #a5adba;
+      --green: #22c55e;
+      --red: #f05252;
+      --yellow: #f0b429;
+      --blue: #38bdf8;
+      --purple: #a78bfa;
+      --green-bg: rgba(34, 197, 94, 0.11);
+      --red-bg: rgba(240, 82, 82, 0.11);
+      --yellow-bg: rgba(240, 180, 41, 0.12);
+      --blue-bg: rgba(56, 189, 248, 0.1);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 18px;
+      padding: 18px 24px;
+      background: #15171b;
+      border-bottom: 1px solid var(--line);
+      position: sticky;
+      top: 0;
+      z-index: 3;
+    }
+
+    h1, h2 {
+      margin: 0;
+      letter-spacing: 0;
+    }
+
+    h1 {
+      font-size: 18px;
+    }
+
+    h2 {
+      font-size: 14px;
+      margin-bottom: 12px;
+    }
+
+    .header-meta {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    nav {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-top: 9px;
+    }
+
+    nav a {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      padding: 0 11px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 13px;
+      background: var(--panel);
+    }
+
+    nav a.active {
+      color: var(--blue);
+      border-color: rgba(56, 189, 248, 0.5);
+      background: var(--blue-bg);
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.12);
+    }
+
+    main {
+      padding: 22px 24px 34px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(340px, 1.1fr) minmax(320px, 0.9fr);
+      gap: 14px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .metric {
+      min-height: 88px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+    }
+
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 24px;
+      line-height: 1.08;
+      overflow-wrap: anywhere;
+    }
+
+    .metric.primary {
+      border-color: rgba(56, 189, 248, 0.42);
+      background: var(--blue-bg);
+    }
+
+    .metric.positive {
+      border-color: rgba(34, 197, 94, 0.5);
+      background: var(--green-bg);
+    }
+
+    .metric.negative {
+      border-color: rgba(240, 82, 82, 0.5);
+      background: var(--red-bg);
+    }
+
+    .metric.warning {
+      border-color: rgba(240, 180, 41, 0.5);
+      background: var(--yellow-bg);
+    }
+
+    .candle-box {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .field {
+      background: var(--soft);
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 11px;
+      min-height: 72px;
+    }
+
+    .field span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 7px;
+    }
+
+    .field strong {
+      font-size: 18px;
+    }
+
+    .field.important {
+      border-color: rgba(56, 189, 248, 0.38);
+      background: var(--blue-bg);
+    }
+
+    .field.pass {
+      border-color: rgba(34, 197, 94, 0.5);
+      background: var(--green-bg);
+    }
+
+    .field.fail {
+      border-color: rgba(240, 82, 82, 0.5);
+      background: var(--red-bg);
+    }
+
+    .field.neutral {
+      opacity: 0.78;
+    }
+
+    .decision {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 12px;
+      background: #14171d;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 0 10px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--soft);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .buy {
+      color: var(--green);
+      border-color: rgba(34, 197, 94, 0.45);
+      background: rgba(34, 197, 94, 0.1);
+    }
+
+    .sell {
+      color: var(--red);
+      border-color: rgba(240, 82, 82, 0.45);
+      background: rgba(240, 82, 82, 0.1);
+    }
+
+    .wait {
+      color: var(--blue);
+      border-color: rgba(56, 189, 248, 0.45);
+      background: rgba(56, 189, 248, 0.1);
+    }
+
+    .skip {
+      color: var(--yellow);
+      border-color: rgba(240, 180, 41, 0.45);
+      background: rgba(240, 180, 41, 0.1);
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .good {
+      color: var(--green);
+    }
+
+    .bad {
+      color: var(--red);
+    }
+
+    .focus-strip {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .focus-card {
+      min-height: 108px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      background: var(--panel);
+    }
+
+    .focus-card span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+
+    .focus-card strong {
+      display: block;
+      font-size: 26px;
+      line-height: 1.1;
+      margin-bottom: 8px;
+    }
+
+    .focus-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .focus-card.buy-state,
+    .focus-card.pass-state,
+    .focus-card.profit-state {
+      border-color: rgba(34, 197, 94, 0.5);
+      background: var(--green-bg);
+    }
+
+    .focus-card.sell-state,
+    .focus-card.fail-state,
+    .focus-card.loss-state {
+      border-color: rgba(240, 82, 82, 0.5);
+      background: var(--red-bg);
+    }
+
+    .focus-card.wait-state {
+      border-color: rgba(56, 189, 248, 0.45);
+      background: var(--blue-bg);
+    }
+
+    .focus-card.skip-state {
+      border-color: rgba(240, 180, 41, 0.5);
+      background: var(--yellow-bg);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 620px;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 11px 12px;
+      border-bottom: 1px solid var(--line);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    th {
+      color: var(--muted);
+      background: #151820;
+      font-weight: 700;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .stack {
+      display: grid;
+      gap: 14px;
+    }
+
+    .rule-list {
+      display: grid;
+      gap: 9px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .rule-list strong {
+      color: var(--text);
+    }
+
+    .provider {
+      display: grid;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .provider b {
+      color: var(--text);
+    }
+
+    @media (max-width: 980px) {
+      header {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .grid, .hero {
+        grid-template-columns: 1fr;
+      }
+
+      .focus-strip {
+        grid-template-columns: 1fr;
+      }
+
+      .candle-box {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 560px) {
+      .candle-box {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>NAS100 Paper Agent</h1>
+      <nav aria-label="App navigation">
+        <a href="/paper-trading">Paper Account</a>
+        <a class="active" href="/agent">Candle Agent</a>
+      </nav>
+    </div>
+    <div class="header-meta">
+      <span class="dot"></span>
+      <span>Updated <strong id="updated">--:--:--</strong></span>
+      <span>Paper mode only</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="metric"><span>Symbol</span><strong id="symbol">NAS100USD</strong></div>
+      <div class="metric"><span>Current Price</span><strong id="price">--</strong></div>
+      <div id="decisionMetric" class="metric primary"><span>Decision Status</span><strong id="decisionStatus">--</strong></div>
+      <div id="pnlMetric" class="metric"><span>Open P/L</span><strong id="openPnl">--</strong></div>
+    </section>
+
+    <section class="focus-strip">
+      <div id="actionCard" class="focus-card wait-state">
+        <span>Action</span>
+        <strong id="actionText">WAIT</strong>
+        <p id="actionHelp">Waiting for the 180-second checkpoint.</p>
+      </div>
+      <div id="wickCard" class="focus-card wait-state">
+        <span>Wick Filter</span>
+        <strong id="wickText">--</strong>
+        <p id="wickHelp">Counter wick must stay at or below 20 points.</p>
+      </div>
+      <div id="structureCard" class="focus-card wait-state">
+        <span>Candle Structure</span>
+        <strong id="structureText">--</strong>
+        <p id="structureHelp">Direction is read from open versus current price.</p>
+      </div>
+    </section>
+
+    <section class="grid">
+      <div class="stack">
+        <div class="panel">
+          <h2>15m Candle Watch</h2>
+          <div class="candle-box">
+            <div class="field neutral"><span>Start</span><strong id="candleStart">--</strong></div>
+            <div class="field important"><span>Decision Time</span><strong id="decisionTime">--</strong></div>
+            <div class="field important"><span>Open</span><strong id="open">--</strong></div>
+            <div class="field neutral"><span>High</span><strong id="high">--</strong></div>
+            <div class="field neutral"><span>Low</span><strong id="low">--</strong></div>
+            <div id="currentField" class="field important"><span>Current</span><strong id="close">--</strong></div>
+            <div id="counterWickField" class="field"><span>Counter Wick</span><strong id="counterWick">--</strong></div>
+            <div class="field important"><span>Next Candle In</span><strong id="closeCountdown">--</strong></div>
+          </div>
+          <div class="decision">
+            <div>
+              <span class="muted">Latest decision</span>
+              <div id="decisionReason">Waiting for the 180-second decision point.</div>
+            </div>
+            <span id="decisionBadge" class="badge wait">WAIT</span>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Decision Log</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Candle</th>
+                  <th>Side</th>
+                  <th>Open</th>
+                  <th>Decision Price</th>
+                  <th>Wick</th>
+                  <th>Execution</th>
+                </tr>
+              </thead>
+              <tbody id="decisions"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="stack">
+        <div class="panel">
+          <h2>Paper Position</h2>
+          <div id="position"></div>
+        </div>
+
+        <div class="panel">
+          <h2>Rules</h2>
+          <ul class="rule-list">
+            <li><strong>Market:</strong> NAS100USD only</li>
+            <li><strong>Timeframe:</strong> 15-minute candle</li>
+            <li><strong>Decision:</strong> 180 seconds after candle open</li>
+            <li><strong>Strict mode:</strong> no entry if counter wick is more than 20 points</li>
+            <li><strong>BUY:</strong> bullish candle and lower wick <= 20 points</li>
+            <li><strong>SELL:</strong> bearish candle and upper wick <= 20 points</li>
+            <li><strong>First trailing:</strong> protect at +30 points once reached</li>
+            <li><strong>Second trailing:</strong> protect at +50 points once reached</li>
+            <li><strong>After +50:</strong> do not trail higher; leave trade until +50 protection or candle close</li>
+            <li><strong>Stop loss:</strong> close paper trade at -20 points</li>
+            <li><strong>Fallback close:</strong> close any still-open trade at candle close</li>
+            <li><strong>Execution:</strong> paper trade only, no broker orders</li>
+          </ul>
+        </div>
+
+        <div class="panel">
+          <h2>Data Provider</h2>
+          <div class="provider">
+            <div><b>Active feed:</b> <span id="feedMode">simulated</span></div>
+            <div><b>Provider symbol:</b> <span id="providerSymbol">--</span></div>
+            <div><b>Provider status:</b> <span id="providerStatus">--</span></div>
+            <div><b>OANDA:</b> <span id="oandaStatus">not connected</span></div>
+            <div><b>Note:</b> Yahoo/NQ=F is read-only paper-test data, not broker execution pricing.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const money = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 2 });
+
+    function classForDecision(value) {
+      if (value === "BUY") return "badge buy";
+      if (value === "SELL") return "badge sell";
+      if (value === "SKIP") return "badge skip";
+      return "badge wait";
+    }
+
+    function secondsText(value) {
+      const seconds = Math.max(0, Number(value || 0));
+      const min = Math.floor(seconds / 60);
+      const sec = seconds % 60;
+      return `${min}:${String(sec).padStart(2, "0")}`;
+    }
+
+    function candleStructure(candle) {
+      if (candle.close > candle.open) return "BULLISH";
+      if (candle.close < candle.open) return "BEARISH";
+      return "FLAT";
+    }
+
+    function activeCounterWick(candle) {
+      if (candle.close > candle.open) return Math.max(0, candle.open - candle.low);
+      if (candle.close < candle.open) return Math.max(0, candle.high - candle.open);
+      return 0;
+    }
+
+    function setStateClass(element, base, state) {
+      element.className = `${base} ${state}`;
+    }
+
+    function renderPosition(trade) {
+      const target = document.querySelector("#position");
+      if (!trade) {
+        target.innerHTML = `<div class="muted">No open paper position.</div>`;
+        return;
+      }
+
+      target.innerHTML = `
+        <div class="candle-box">
+          <div class="field"><span>Side</span><strong class="${trade.side === "BUY" ? "buy" : "sell"}">${trade.side}</strong></div>
+          <div class="field"><span>Entry</span><strong>${money.format(trade.entry)}</strong></div>
+          <div class="field"><span>Last Price</span><strong>${money.format(trade.last_price)}</strong></div>
+          <div class="field ${Number(trade.unrealized_pnl || 0) >= 0 ? "pass" : "fail"}"><span>Unrealized</span><strong>$${money.format(trade.unrealized_pnl || 0)} / ${money.format(trade.unrealized_points)} pts</strong></div>
+          <div class="field ${trade.trailing_active ? "pass" : "important"}"><span>Trailing</span><strong>${trade.trailing_active ? `${trade.trailing_stage} / ${money.format(trade.trailing_stop_points)} pts` : "waiting for +30 pts"}</strong></div>
+          <div class="field"><span>Opened</span><strong>${trade.opened_at}</strong></div>
+          <div class="field"><span>Best Profit</span><strong>${money.format(trade.best_points || 0)} pts</strong></div>
+        </div>
+      `;
+    }
+
+    function renderDecisions(decisions) {
+      const body = document.querySelector("#decisions");
+      if (!decisions.length) {
+        body.innerHTML = `<tr><td colspan="7" class="muted">No decision has fired yet for this session.</td></tr>`;
+        return;
+      }
+
+      body.innerHTML = decisions.map((row) => `
+        <tr>
+          <td>${row.time}</td>
+          <td>${row.candle}</td>
+          <td><span class="${classForDecision(row.side)}">${row.side}</span></td>
+          <td>${money.format(row.open)}</td>
+          <td>${money.format(row.price_at_decision)}</td>
+          <td>${money.format(row.counter_wick)}</td>
+          <td>${row.execution || "none"}</td>
+        </tr>
+      `).join("");
+    }
+
+    async function refresh() {
+      const response = await fetch("/api/paper");
+      const data = await response.json();
+      const candle = data.candle;
+      const trade = data.open_trade;
+      const structure = candleStructure(candle);
+      const liveWick = candle.decision_checked ? candle.counter_wick : activeCounterWick(candle);
+      const wickPassed = liveWick <= data.rules.max_counter_wick_points;
+      const decisionPending = !candle.decision_checked;
+      const pnl = trade ? Number(trade.unrealized_pnl) : 0;
+
+      const decisionStatus = decisionPending
+        ? `${secondsText(data.seconds_to_decision)} to check`
+        : `${candle.decision} fired`;
+      const actionHelp = decisionPending
+        ? "No paper trade is allowed before the 180-second checkpoint."
+        : candle.reason;
+      const wickState = wickPassed ? "pass-state" : "fail-state";
+      const structureState = structure === "BULLISH" ? "buy-state" : structure === "BEARISH" ? "sell-state" : "wait-state";
+      const actionState = candle.decision === "BUY" ? "buy-state" : candle.decision === "SELL" ? "sell-state" : candle.decision === "SKIP" ? "skip-state" : "wait-state";
+
+      document.querySelector("#updated").textContent = data.timestamp;
+      document.querySelector("#symbol").textContent = data.symbol;
+      document.querySelector("#price").textContent = money.format(data.price);
+      document.querySelector("#decisionStatus").textContent = decisionStatus;
+      document.querySelector("#openPnl").textContent = trade ? `$${money.format(trade.unrealized_pnl)} / ${money.format(trade.unrealized_points)} pts` : "--";
+      document.querySelector("#candleStart").textContent = candle.start;
+      document.querySelector("#decisionTime").textContent = candle.decision_time;
+      document.querySelector("#open").textContent = money.format(candle.open);
+      document.querySelector("#high").textContent = money.format(candle.high);
+      document.querySelector("#low").textContent = money.format(candle.low);
+      document.querySelector("#close").textContent = money.format(candle.close);
+      document.querySelector("#counterWick").textContent = `${money.format(liveWick)} pts`;
+      document.querySelector("#closeCountdown").textContent = secondsText(data.seconds_to_close);
+      document.querySelector("#decisionReason").textContent = candle.reason;
+      document.querySelector("#decisionBadge").className = classForDecision(candle.decision);
+      document.querySelector("#decisionBadge").textContent = candle.decision;
+      document.querySelector("#feedMode").textContent = data.feed_mode;
+      document.querySelector("#providerSymbol").textContent = data.provider_status.provider?.symbol || "--";
+      document.querySelector("#providerStatus").textContent = data.provider_status.provider?.status || data.provider_status.current;
+      document.querySelector("#oandaStatus").textContent = data.oanda.ready ? "configured" : "not configured";
+
+      document.querySelector("#actionText").textContent = candle.decision;
+      document.querySelector("#actionHelp").textContent = actionHelp;
+      document.querySelector("#wickText").textContent = wickPassed ? "PASS" : "FAIL";
+      document.querySelector("#wickHelp").textContent = `${money.format(liveWick)} of ${money.format(data.rules.max_counter_wick_points)} allowed points`;
+      document.querySelector("#structureText").textContent = structure;
+      document.querySelector("#structureHelp").textContent = structure === "BULLISH"
+        ? "Current price is above the candle open."
+        : structure === "BEARISH"
+          ? "Current price is below the candle open."
+          : "Current price is still equal to the candle open.";
+
+      setStateClass(document.querySelector("#actionCard"), "focus-card", actionState);
+      setStateClass(document.querySelector("#wickCard"), "focus-card", wickState);
+      setStateClass(document.querySelector("#structureCard"), "focus-card", structureState);
+      document.querySelector("#counterWickField").className = wickPassed ? "field pass" : "field fail";
+      document.querySelector("#currentField").className = structure === "BULLISH" ? "field pass" : structure === "BEARISH" ? "field fail" : "field important";
+      document.querySelector("#decisionMetric").className = decisionPending ? "metric primary" : "metric warning";
+      document.querySelector("#pnlMetric").className = !trade ? "metric" : pnl >= 0 ? "metric positive" : "metric negative";
+
+      renderPosition(trade);
+      renderDecisions(data.decisions || []);
+    }
+
+    refresh();
+    setInterval(refresh, 1000);
+  </script>
+</body>
+</html>

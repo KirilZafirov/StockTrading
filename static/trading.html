@@ -1,0 +1,539 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NAS100 Paper Trading Account</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #101113;
+      --panel: #181b20;
+      --soft: #20252d;
+      --line: #2d3440;
+      --text: #f7f8fb;
+      --muted: #9ea7b3;
+      --green: #22c55e;
+      --red: #ef4444;
+      --yellow: #f0b429;
+      --blue: #38bdf8;
+      --green-bg: rgba(34, 197, 94, 0.12);
+      --red-bg: rgba(239, 68, 68, 0.12);
+      --yellow-bg: rgba(240, 180, 41, 0.12);
+      --blue-bg: rgba(56, 189, 248, 0.1);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--line);
+      background: #15171b;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+
+    h1, h2 {
+      margin: 0;
+      letter-spacing: 0;
+    }
+
+    h1 {
+      font-size: 18px;
+    }
+
+    h2 {
+      font-size: 14px;
+      margin-bottom: 12px;
+    }
+
+    .meta {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    nav {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    nav a {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      padding: 0 11px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 13px;
+      background: var(--panel);
+    }
+
+    nav a.active {
+      color: var(--blue);
+      border-color: rgba(56, 189, 248, 0.5);
+      background: var(--blue-bg);
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.12);
+    }
+
+    main {
+      padding: 22px 24px 34px;
+    }
+
+    .account-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .card, .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    .card {
+      min-height: 96px;
+      padding: 14px;
+    }
+
+    .card span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+
+    .card strong {
+      display: block;
+      font-size: 25px;
+      line-height: 1.08;
+      overflow-wrap: anywhere;
+    }
+
+    .positive {
+      border-color: rgba(34, 197, 94, 0.5);
+      background: var(--green-bg);
+    }
+
+    .negative {
+      border-color: rgba(239, 68, 68, 0.5);
+      background: var(--red-bg);
+    }
+
+    .attention {
+      border-color: rgba(56, 189, 248, 0.45);
+      background: var(--blue-bg);
+    }
+
+    .warning {
+      border-color: rgba(240, 180, 41, 0.5);
+      background: var(--yellow-bg);
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(360px, 0.9fr) minmax(420px, 1.1fr);
+      gap: 14px;
+    }
+
+    .panel {
+      padding: 16px;
+    }
+
+    .position {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .field {
+      min-height: 78px;
+      background: var(--soft);
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 11px;
+    }
+
+    .field span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 7px;
+    }
+
+    .field strong {
+      display: block;
+      font-size: 18px;
+      overflow-wrap: anywhere;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 26px;
+      padding: 0 9px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--soft);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .buy, .win {
+      color: var(--green);
+      border-color: rgba(34, 197, 94, 0.5);
+      background: var(--green-bg);
+    }
+
+    .sell, .loss {
+      color: var(--red);
+      border-color: rgba(239, 68, 68, 0.5);
+      background: var(--red-bg);
+    }
+
+    .flat, .open {
+      color: var(--blue);
+      border-color: rgba(56, 189, 248, 0.45);
+      background: var(--blue-bg);
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .table-wrap {
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    table {
+      width: 100%;
+      min-width: 820px;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      padding: 11px 12px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      white-space: nowrap;
+      font-size: 13px;
+    }
+
+    th {
+      color: var(--muted);
+      background: #151920;
+      font-weight: 700;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .green-text {
+      color: var(--green);
+      font-weight: 800;
+    }
+
+    .red-text {
+      color: var(--red);
+      font-weight: 800;
+    }
+
+    .rule-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    @media (max-width: 1100px) {
+      .account-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 620px) {
+      header {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .account-grid, .position {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>NAS100 Paper Trading Account</h1>
+      <nav aria-label="App navigation">
+        <a class="active" href="/paper-trading">Paper Account</a>
+        <a href="/agent">Candle Agent</a>
+      </nav>
+    </div>
+    <div class="meta">
+      <span class="dot"></span>
+      <span>Updated <strong id="updated">--:--:--</strong></span>
+      <span>Paper only</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="account-grid">
+      <div class="card attention"><span>Starting Balance</span><strong id="startBalance">$20,000.00</strong></div>
+      <div id="equityCard" class="card"><span>Equity</span><strong id="equity">$--</strong></div>
+      <div id="totalCard" class="card"><span>Total P/L</span><strong id="totalPnl">$--</strong></div>
+      <div id="openCard" class="card"><span>Open Trade P/L</span><strong id="openPnl">$--</strong></div>
+      <div class="card"><span>Win Rate</span><strong id="winRate">--</strong></div>
+    </section>
+
+    <div class="rule-strip">
+      <span class="badge open">NAS100USD</span>
+      <span id="feedBadge" class="badge open">feed --</span>
+      <span id="providerBadge" class="badge open">provider --</span>
+      <span id="persistenceBadge" class="badge open">state --</span>
+      <span class="badge open">15m candles</span>
+      <span class="badge open">180s decision</span>
+      <span class="badge win">strict wick <= 20</span>
+      <span class="badge win">first trail +30</span>
+      <span class="badge win">second trail +50</span>
+      <span class="badge loss">SL -20 pts</span>
+      <span class="badge open">5 lots</span>
+      <span class="badge open">$5 / point</span>
+    </div>
+
+    <section class="layout">
+      <div class="panel">
+        <h2>Current Paper Trade</h2>
+        <div id="position" class="position"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Every Outcome</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Status</th>
+                <th>Side</th>
+                <th>Entry</th>
+                <th>Last/Exit</th>
+                <th>Points</th>
+                <th>P/L</th>
+                <th>Outcome</th>
+                <th>Opened</th>
+              </tr>
+            </thead>
+            <tbody id="outcomes"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" style="margin-top: 14px;">
+      <h2>Transaction Ledger</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Time</th>
+              <th>Type</th>
+              <th>Trade</th>
+              <th>Side</th>
+              <th>Price</th>
+              <th>Lots</th>
+              <th>Points</th>
+              <th>P/L</th>
+              <th>Balance</th>
+              <th>Reason</th>
+            </tr>
+          </thead>
+          <tbody id="transactions"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const usd = new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" });
+    const num = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 2 });
+
+    function moneyClass(value) {
+      if (value > 0) return "positive";
+      if (value < 0) return "negative";
+      return "";
+    }
+
+    function textClass(value) {
+      if (value > 0) return "green-text";
+      if (value < 0) return "red-text";
+      return "muted";
+    }
+
+    function sideBadge(side) {
+      return `<span class="badge ${side === "BUY" ? "buy" : "sell"}">${side}</span>`;
+    }
+
+    function statusBadge(trade) {
+      if (trade.status === "OPEN") return `<span class="badge open">OPEN</span>`;
+      if (trade.outcome === "WIN") return `<span class="badge win">CLOSED</span>`;
+      if (trade.outcome === "LOSS") return `<span class="badge loss">CLOSED</span>`;
+      return `<span class="badge flat">CLOSED</span>`;
+    }
+
+    function outcomeBadge(trade) {
+      if (trade.status === "OPEN") return `<span class="badge open">${trade.state || "flat"}</span>`;
+      if (trade.outcome === "WIN") return `<span class="badge win">WIN</span>`;
+      if (trade.outcome === "LOSS") return `<span class="badge loss">LOSS</span>`;
+      return `<span class="badge flat">FLAT</span>`;
+    }
+
+    function renderPosition(trade) {
+      const target = document.querySelector("#position");
+      if (!trade) {
+        target.innerHTML = `
+          <div class="field"><span>Status</span><strong class="muted">Waiting for next signal</strong></div>
+          <div class="field"><span>Lots</span><strong>5</strong></div>
+          <div class="field"><span>Exposure</span><strong>$5 / point</strong></div>
+          <div class="field"><span>Trailing</span><strong>+30 then +50</strong></div>
+        `;
+        return;
+      }
+
+      const pnl = Number(trade.unrealized_pnl || 0);
+      target.innerHTML = `
+        <div class="field ${trade.side === "BUY" ? "positive" : "negative"}"><span>Side</span><strong>${trade.side}</strong></div>
+        <div class="field"><span>Lots</span><strong>${trade.lots}</strong></div>
+        <div class="field"><span>Entry</span><strong>${num.format(trade.entry)}</strong></div>
+        <div class="field"><span>Last Price</span><strong>${num.format(trade.last_price)}</strong></div>
+        <div class="field ${moneyClass(pnl)}"><span>Live P/L</span><strong>${usd.format(pnl)}</strong></div>
+        <div class="field"><span>Points</span><strong>${num.format(trade.unrealized_points)} pts</strong></div>
+        <div class="field ${trade.trailing_active ? "positive" : ""}"><span>Trailing</span><strong>${trade.trailing_active ? `${trade.trailing_stage} / ${num.format(trade.trailing_stop_points)} pts` : "waiting for +30 pts"}</strong></div>
+        <div class="field"><span>Best Profit</span><strong>${num.format(trade.best_points || 0)} pts</strong></div>
+      `;
+    }
+
+    function renderOutcomes(trades) {
+      const body = document.querySelector("#outcomes");
+      if (!trades.length) {
+        body.innerHTML = `<tr><td colspan="9" class="muted">No paper trades yet. The first eligible 180-second decision will open one.</td></tr>`;
+        return;
+      }
+
+      body.innerHTML = trades.map((trade) => {
+        const pnl = trade.status === "OPEN" ? Number(trade.unrealized_pnl || 0) : Number(trade.realized_pnl || 0);
+        const points = trade.status === "OPEN" ? Number(trade.unrealized_points || 0) : Number(trade.realized_points || 0);
+        const lastOrExit = trade.status === "OPEN" ? trade.last_price : trade.exit;
+        return `
+          <tr>
+            <td>${trade.id}</td>
+            <td>${statusBadge(trade)}</td>
+            <td>${sideBadge(trade.side)}</td>
+            <td>${num.format(trade.entry)}</td>
+            <td>${num.format(lastOrExit)}</td>
+            <td class="${textClass(points)}">${num.format(points)}</td>
+            <td class="${textClass(pnl)}">${usd.format(pnl)}</td>
+            <td>${outcomeBadge(trade)}</td>
+            <td>${trade.opened_at}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function renderTransactions(transactions) {
+      const body = document.querySelector("#transactions");
+      if (!transactions.length) {
+        body.innerHTML = `<tr><td colspan="11" class="muted">No transactions yet. Open and close events will appear here.</td></tr>`;
+        return;
+      }
+
+      body.innerHTML = transactions.map((transaction) => `
+        <tr>
+          <td>${transaction.id}</td>
+          <td>${transaction.time}</td>
+          <td><span class="badge ${transaction.type === "OPEN" ? "open" : Number(transaction.pnl) >= 0 ? "win" : "loss"}">${transaction.type}</span></td>
+          <td>${transaction.trade_id}</td>
+          <td>${sideBadge(transaction.side)}</td>
+          <td>${num.format(transaction.price)}</td>
+          <td>${transaction.lots}</td>
+          <td class="${textClass(Number(transaction.points || 0))}">${num.format(transaction.points || 0)}</td>
+          <td class="${textClass(Number(transaction.pnl || 0))}">${usd.format(transaction.pnl || 0)}</td>
+          <td>${usd.format(transaction.balance)}</td>
+          <td>${transaction.reason}</td>
+        </tr>
+      `).join("");
+    }
+
+    async function refresh() {
+      const response = await fetch("/api/paper");
+      const data = await response.json();
+      const account = data.account;
+      const trade = data.open_trade;
+
+      document.querySelector("#updated").textContent = data.timestamp;
+      document.querySelector("#startBalance").textContent = usd.format(account.start_balance);
+      document.querySelector("#equity").textContent = usd.format(account.equity);
+      document.querySelector("#totalPnl").textContent = usd.format(account.total_pnl);
+      document.querySelector("#openPnl").textContent = usd.format(account.unrealized_pnl);
+      document.querySelector("#winRate").textContent = `${account.win_rate}%`;
+      document.querySelector("#equityCard").className = `card ${moneyClass(account.equity - account.start_balance)}`;
+      document.querySelector("#totalCard").className = `card ${moneyClass(account.total_pnl)}`;
+      document.querySelector("#openCard").className = `card ${moneyClass(account.unrealized_pnl)}`;
+      document.querySelector("#feedBadge").textContent = `feed ${data.feed_mode}`;
+      document.querySelector("#providerBadge").textContent = data.provider_status.provider
+        ? `${data.provider_status.provider.name}: ${data.provider_status.provider.symbol}`
+        : "provider simulated";
+      document.querySelector("#persistenceBadge").textContent = data.persistence?.exists
+        ? "state saved locally"
+        : "state pending save";
+
+      renderPosition(trade);
+      renderOutcomes(data.trades || []);
+      renderTransactions(data.transactions || []);
+    }
+
+    refresh();
+    setInterval(refresh, 1000);
+  </script>
+</body>
+</html>
