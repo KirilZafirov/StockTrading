@@ -519,7 +519,7 @@
         <span id="providerBadge" class="badge open">provider --</span>
         <span class="badge open">localStorage</span>
         <span id="timeframeBadge" class="badge open">15m candles</span>
-        <span id="decisionBadge" class="badge open">180s decision</span>
+        <span id="noTradeBadge" class="badge open">no trade 180s</span>
         <span id="wickBadge" class="badge open">strict wick <= 20</span>
         <span id="firstTrailBadge" class="badge win">first trail +30</span>
         <span id="secondTrailBadge" class="badge win">second trail +50</span>
@@ -620,7 +620,7 @@
 
         <div class="panel">
           <h2>Rules</h2>
-          <div class="field"><span>Entry</span><strong id="ruleEntry">180s strict candle check</strong></div>
+          <div class="field"><span>Entry</span><strong id="ruleEntry">No trades for first 180s</strong></div>
           <div class="field"><span>Wick</span><strong id="ruleWick">No entry above 20 points</strong></div>
           <div class="field"><span>Protection</span><strong id="ruleProtection">+30 then +50</strong></div>
           <div class="field"><span>Stop</span><strong id="ruleStop">-20 points</strong></div>
@@ -642,9 +642,9 @@
             <p>Controls candle boundaries and when open trades fall back to candle-close exit.</p>
           </div>
           <div class="setting">
-            <label for="settingDecisionSeconds">Decision checkpoint seconds</label>
-            <input id="settingDecisionSeconds" type="number" min="30" max="900" step="10">
-            <p>How long to let the candle form before checking wick/structure.</p>
+            <label for="settingNoTradeSeconds">No-trade period seconds</label>
+            <input id="settingNoTradeSeconds" type="number" min="30" max="900" step="10">
+            <p>No BUY/SELL is allowed until this candle observation period finishes.</p>
           </div>
           <div class="setting">
             <label for="settingMaxWick">Maximum counter wick points</label>
@@ -694,7 +694,7 @@
     const STORE_KEY = "nas100-static-paper-agent-v1";
     const DEFAULT_SETTINGS = {
       timeframeMinutes: 15,
-      decisionSeconds: 180,
+      noTradeSeconds: 180,
       maxCounterWick: 20,
       stopLossPoints: 20,
       firstTrailPoints: 30,
@@ -725,9 +725,14 @@
         : DEFAULT_SETTINGS.timeframeMinutes;
       const firstTrail = Math.max(1, Number(merged.firstTrailPoints) || DEFAULT_SETTINGS.firstTrailPoints);
       const secondTrail = Math.max(firstTrail, Number(merged.secondTrailPoints) || DEFAULT_SETTINGS.secondTrailPoints);
+      const noTradeSeconds = Math.max(
+        30,
+        Math.min(900, Number(merged.noTradeSeconds ?? merged.decisionSeconds) || DEFAULT_SETTINGS.noTradeSeconds),
+      );
       return {
         timeframeMinutes: timeframe,
-        decisionSeconds: Math.max(30, Math.min(900, Number(merged.decisionSeconds) || DEFAULT_SETTINGS.decisionSeconds)),
+        noTradeSeconds,
+        decisionSeconds: noTradeSeconds,
         maxCounterWick: Math.max(0, Number(merged.maxCounterWick) || 0),
         stopLossPoints: Math.max(1, Number(merged.stopLossPoints) || DEFAULT_SETTINGS.stopLossPoints),
         firstTrailPoints: firstTrail,
@@ -796,8 +801,8 @@
       return {
         startMs,
         start: clock(startMs),
-        decisionMs: startMs + settings.decisionSeconds * 1000,
-        decisionTime: clock(startMs + settings.decisionSeconds * 1000),
+        decisionMs: startMs + settings.noTradeSeconds * 1000,
+        decisionTime: clock(startMs + settings.noTradeSeconds * 1000),
         endMs: startMs + settings.timeframeMinutes * 60 * 1000,
         open: round(openPrice),
         high: round(openPrice),
@@ -805,7 +810,7 @@
         close: round(openPrice),
         decisionChecked: false,
         decision: "WAIT",
-        reason: `Waiting for the ${settings.decisionSeconds}-second decision point.`,
+        reason: `No paper trade is allowed during the first ${settings.noTradeSeconds} seconds of the candle.`,
         counterWick: 0,
         elapsedSeconds: Math.max(0, Math.floor((now - startMs) / 1000)),
       };
@@ -939,7 +944,7 @@
       if (Date.now() >= state.candle.decisionMs) {
         state.candle.decisionChecked = true;
         state.candle.decision = "SKIP";
-        state.candle.reason = `Skipped: real data feed started after this candle's ${getSettings().decisionSeconds}-second checkpoint.`;
+        state.candle.reason = `Skipped: real data feed started after this candle's ${getSettings().noTradeSeconds}-second no-trade period.`;
       }
     }
 
@@ -996,7 +1001,7 @@
       state.openTrade = trade;
       state.trades.unshift(trade);
       state.trades = state.trades.slice(0, 50);
-      recordTransaction("OPEN", trade, entry, `strict ${settings.decisionSeconds}s wick rule passed`);
+      recordTransaction("OPEN", trade, entry, `strict ${settings.noTradeSeconds}s no-trade wick rule passed`);
       return "paper_trade_opened";
     }
 
@@ -1269,7 +1274,7 @@
       document.querySelector("#counterWick").textContent = `${num.format(liveWick)} pts`;
       document.querySelector("#providerStatus").textContent = `${state.provider.symbol} / ${state.provider.status}`;
       document.querySelector("#candleWatchTitle").textContent = `${settings.timeframeMinutes}m Candle Watch`;
-      document.querySelector("#ruleEntry").textContent = `${settings.decisionSeconds}s strict candle check`;
+      document.querySelector("#ruleEntry").textContent = `No trades for first ${settings.noTradeSeconds}s`;
       document.querySelector("#ruleWick").textContent = `No entry above ${settings.maxCounterWick} points`;
       document.querySelector("#ruleProtection").textContent = `+${settings.firstTrailPoints} then +${settings.secondTrailPoints}`;
       document.querySelector("#ruleStop").textContent = `-${settings.stopLossPoints} points`;
@@ -1301,7 +1306,7 @@
       document.querySelector("#providerBadge").textContent = `${state.provider.name}: ${state.provider.symbol}`;
       document.querySelector("#runtimeBadge").textContent = `${state.provider.status} / localStorage`;
       document.querySelector("#timeframeBadge").textContent = `${settings.timeframeMinutes}m candles`;
-      document.querySelector("#decisionBadge").textContent = `${settings.decisionSeconds}s decision`;
+      document.querySelector("#noTradeBadge").textContent = `no trade ${settings.noTradeSeconds}s`;
       document.querySelector("#wickBadge").textContent = `strict wick <= ${settings.maxCounterWick}`;
       document.querySelector("#firstTrailBadge").textContent = `first trail +${settings.firstTrailPoints}`;
       document.querySelector("#secondTrailBadge").textContent = `second trail +${settings.secondTrailPoints}`;
@@ -1326,7 +1331,7 @@
     function syncSettingsForm() {
       const settings = getSettings();
       document.querySelector("#settingTimeframe").value = String(settings.timeframeMinutes);
-      document.querySelector("#settingDecisionSeconds").value = settings.decisionSeconds;
+      document.querySelector("#settingNoTradeSeconds").value = settings.noTradeSeconds;
       document.querySelector("#settingMaxWick").value = settings.maxCounterWick;
       document.querySelector("#settingStopLoss").value = settings.stopLossPoints;
       document.querySelector("#settingFirstTrail").value = settings.firstTrailPoints;
@@ -1339,7 +1344,7 @@
     function readSettingsForm() {
       return normalizeSettings({
         timeframeMinutes: Number(document.querySelector("#settingTimeframe").value),
-        decisionSeconds: Number(document.querySelector("#settingDecisionSeconds").value),
+        noTradeSeconds: Number(document.querySelector("#settingNoTradeSeconds").value),
         maxCounterWick: Number(document.querySelector("#settingMaxWick").value),
         stopLossPoints: Number(document.querySelector("#settingStopLoss").value),
         firstTrailPoints: Number(document.querySelector("#settingFirstTrail").value),
@@ -1372,7 +1377,7 @@
       const next = readSettingsForm();
       state.settings = next;
       const flowChanged = previous.timeframeMinutes !== next.timeframeMinutes
-        || previous.decisionSeconds !== next.decisionSeconds;
+        || previous.noTradeSeconds !== next.noTradeSeconds;
       const providerChanged = previous.providerSymbol !== next.providerSymbol;
       if (providerChanged) {
         state.provider = {
