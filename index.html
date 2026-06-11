@@ -179,6 +179,22 @@
       background: var(--yellow-bg);
     }
 
+    .notice {
+      display: none;
+      border: 1px solid rgba(240, 180, 41, 0.5);
+      border-radius: 8px;
+      background: var(--yellow-bg);
+      color: var(--text);
+      padding: 12px 14px;
+      margin-bottom: 14px;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .notice strong {
+      color: var(--yellow);
+    }
+
     .rule-strip {
       display: flex;
       flex-wrap: wrap;
@@ -500,11 +516,13 @@
       <span class="dot"></span>
       <span>Updated <strong id="updated">--:--:--</strong></span>
       <span id="runtimeBadge">Browser mode</span>
+      <span id="buildBadge">build --</span>
     </div>
   </header>
 
   <main>
     <section id="accountView" class="view active">
+      <div id="dataNotice" class="notice"></div>
       <section class="account-grid">
         <div class="card attention"><span>Starting Balance</span><strong id="startBalance">$20,000.00</strong></div>
         <div id="equityCard" class="card"><span>Equity</span><strong id="equity">$--</strong></div>
@@ -693,6 +711,8 @@
 
   <script>
     const STORE_KEY = "nas100-static-paper-agent-v1";
+    const APP_VERSION = "2026-06-11-feed-safety-v2";
+    const APP_VERSION_LABEL = "feed-safety v2";
     const DEFAULT_SETTINGS = {
       timeframeMinutes: 15,
       noTradeSeconds: 180,
@@ -780,6 +800,8 @@
       const price = 28600;
       return {
         version: 1,
+        appVersion: APP_VERSION,
+        stateNotice: "",
         settings,
         price,
         feedMode: "waiting-real",
@@ -832,6 +854,7 @@
         const loaded = JSON.parse(raw);
         const base = freshState();
         const settings = normalizeSettings(loaded.settings);
+        const isLegacyState = loaded.appVersion !== APP_VERSION;
         const provider = {
           ...base.provider,
           ...(loaded.provider || {}),
@@ -840,6 +863,10 @@
         const restored = {
           ...base,
           ...loaded,
+          appVersion: APP_VERSION,
+          stateNotice: isLegacyState && (loaded.transactions?.length || loaded.trades?.length)
+            ? "This browser has paper data from an older app build. Results before feed-safety v2 may include fallback simulation and should be reset or ignored."
+            : loaded.stateNotice || "",
           settings,
           provider,
           startBalance: loaded.startBalance || settings.startBalance,
@@ -1368,6 +1395,7 @@
       const wins = closed.filter((tradeItem) => tradeItem.outcome === "WIN").length;
       const winRate = closed.length ? Math.round((wins / closed.length) * 1000) / 10 : 0;
       document.querySelector("#updated").textContent = clock();
+      document.querySelector("#buildBadge").textContent = APP_VERSION_LABEL;
       document.querySelector("#startBalance").textContent = usd.format(state.startBalance);
       document.querySelector("#equity").textContent = usd.format(equity);
       document.querySelector("#totalPnl").textContent = usd.format(equity - state.startBalance);
@@ -1389,6 +1417,14 @@
       document.querySelector("#stopBadge").textContent = `SL -${settings.stopLossPoints} pts`;
       document.querySelector("#lotsBadge").textContent = `${settings.lots} lots`;
       document.querySelector("#pointValueBadge").textContent = `${usd.format(dollarsPerPoint(settings))} / point`;
+      const notice = document.querySelector("#dataNotice");
+      if (state.stateNotice) {
+        notice.innerHTML = `<strong>Data notice:</strong> ${state.stateNotice}`;
+        notice.style.display = "block";
+      } else {
+        notice.innerHTML = "";
+        notice.style.display = "none";
+      }
       renderPosition(trade);
       renderOutcomes();
       renderTransactions();
