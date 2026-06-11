@@ -518,6 +518,7 @@
         <span id="feedBadge" class="badge open">feed --</span>
         <span id="providerBadge" class="badge open">provider --</span>
         <span class="badge open">localStorage</span>
+        <span id="feedSafetyBadge" class="badge warning">live feed entries only</span>
         <span id="timeframeBadge" class="badge open">15m candles</span>
         <span id="noTradeBadge" class="badge open">no trade 180s</span>
         <span id="wickBadge" class="badge open">strict wick <= 20</span>
@@ -704,6 +705,8 @@
       dollarsPerPointPerLot: 1,
       providerSymbol: "NQ=F",
       providerPollMs: 5000,
+      requireLiveFeed: true,
+      maxSimElapsedSeconds: 5,
     };
 
     const usd = new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" });
@@ -742,6 +745,8 @@
         dollarsPerPointPerLot: Math.max(0.1, Number(merged.dollarsPerPointPerLot) || DEFAULT_SETTINGS.dollarsPerPointPerLot),
         providerSymbol: String(merged.providerSymbol || DEFAULT_SETTINGS.providerSymbol).trim() || DEFAULT_SETTINGS.providerSymbol,
         providerPollMs: DEFAULT_SETTINGS.providerPollMs,
+        requireLiveFeed: merged.requireLiveFeed !== false,
+        maxSimElapsedSeconds: DEFAULT_SETTINGS.maxSimElapsedSeconds,
       };
     }
 
@@ -759,6 +764,10 @@
 
     function providerUrl(settings = getSettings()) {
       return `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(settings.providerSymbol)}?range=1d&interval=1m`;
+    }
+
+    function isFeedTrusted(settings = getSettings()) {
+      return !settings.requireLiveFeed || state?.feedMode === "real-yahoo";
     }
 
     function candleStartMs(ts = Date.now()) {
@@ -828,7 +837,7 @@
           ...(loaded.provider || {}),
           symbol: settings.providerSymbol,
         };
-        return {
+        const restored = {
           ...base,
           ...loaded,
           settings,
@@ -836,8 +845,54 @@
           startBalance: loaded.startBalance || settings.startBalance,
           balance: Number.isFinite(Number(loaded.balance)) ? Number(loaded.balance) : settings.startBalance,
         };
+        return reconcileRestoredState(restored);
       } catch {
         return freshState();
+      }
+    }
+
+    function reconcileRestoredState(restored) {
+      const closeTransactions = new Map();
+      [...(restored.transactions || [])].reverse().forEach((transaction) => {
+        if (transaction.type === "CLOSE") closeTransactions.set(Number(transaction.tradeId), transaction);
+      });
+
+      restored.trades = (restored.trades || []).map((trade) => {
+        const close = closeTransactions.get(Number(trade.id));
+        if (!close || trade.status === "CLOSED") return trade;
+        const pnl = Number(close.pnl || 0);
+        return {
+          ...trade,
+          status: "CLOSED",
+          closedAt: close.time,
+          exit: round(close.price),
+          closeReason: close.reason,
+          realizedPoints: round(close.points || 0),
+          realizedPnl: round(pnl),
+          unrealizedPoints: 0,
+          unrealizedPnl: 0,
+          lastPrice: round(close.price),
+          outcome: pnl > 0 ? "WIN" : pnl < 0 ? "LOSS" : "FLAT",
+          state: pnl > 0 ? "positive" : pnl < 0 ? "negative" : "flat",
+        };
+      });
+
+      if (restored.openTrade && closeTransactions.has(Number(restored.openTrade.id))) {
+        restored.openTrade = null;
+      }
+
+      if (restored.openTrade) {
+        syncTradeRecord(restored.openTrade, restored);
+      }
+
+      return restored;
+    }
+
+    function syncTradeRecord(trade, targetState = state) {
+      if (!trade || !targetState?.trades) return;
+      const index = targetState.trades.findIndex((tradeItem) => Number(tradeItem.id) === Number(trade.id));
+      if (index >= 0) {
+        targetState.trades[index] = { ...targetState.trades[index], ...trade };
       }
     }
 
@@ -949,7 +1004,7 @@
     }
 
     function nextSimPrice() {
-      const elapsed = Math.max(1, (Date.now() - state.lastSimTick) / 1000);
+      const elapsed = Math.min(getSettings().maxSimElapsedSeconds, Math.max(1, (Date.now() - state.lastSimTick) / 1000));
       const drift = (Math.random() - 0.5) * 3.5 * elapsed;
       const pulse = Math.sin(Date.now() / 14000) * Math.random() * 2;
       state.lastSimTick = Date.now();
@@ -1023,6 +1078,7 @@
       trade.lastPrice = round(exitPrice);
       trade.outcome = pnl > 0 ? "WIN" : pnl < 0 ? "LOSS" : "FLAT";
       trade.state = pnl > 0 ? "positive" : pnl < 0 ? "negative" : "flat";
+      syncTradeRecord(trade);
       recordTransaction("CLOSE", trade, exitPrice, reason, points, pnl);
       state.openTrade = null;
     }
@@ -1046,6 +1102,7 @@
         trade.trailingStopPoints = settings.firstTrailPoints;
       }
       trade.trailingActive = trade.trailingStage !== "none";
+      syncTradeRecord(trade);
     }
 
     function enforceExits() {
@@ -1078,12 +1135,17 @@
         candleStructure = "bearish";
         counterWick = Math.max(0, candle.high - candle.open);
       }
-      const allowed = side !== "SKIP" && counterWick <= settings.maxCounterWick;
+      const feedAllowed = !settings.requireLiveFeed || state.feedMode === "real-yahoo";
+      const allowed = side !== "SKIP" && counterWick <= settings.maxCounterWick && feedAllowed;
       candle.decisionChecked = true;
       candle.decision = allowed ? side : "SKIP";
-      candle.reason = allowed
-        ? `${candleStructure} candle; counter wick ${num.format(counterWick)} points.`
-        : `Skipped: ${candleStructure} candle; counter wick ${num.format(counterWick)} points.`;
+      if (allowed) {
+        candle.reason = `${candleStructure} candle; counter wick ${num.format(counterWick)} points.`;
+      } else if (!feedAllowed) {
+        candle.reason = `Skipped: feed is ${state.feedMode}; live Yahoo feed is required for entries.`;
+      } else {
+        candle.reason = `Skipped: ${candleStructure} candle; counter wick ${num.format(counterWick)} points.`;
+      }
       candle.counterWick = round(counterWick);
       const event = {
         time: nowIso(),
@@ -1104,12 +1166,22 @@
     }
 
     function tick() {
+      const settings = getSettings();
+      const trustedFeed = isFeedTrusted(settings);
       const startMs = candleStartMs();
-      if (state.feedMode === "simulated-fallback" || state.feedMode === "waiting-real") {
+      if ((state.feedMode === "simulated-fallback" || state.feedMode === "waiting-real") && !state.provider.lastPrice) {
         state.price = nextSimPrice();
       }
       if (startMs !== state.candle.startMs) {
-        closeOpenTrade(state.price, `${getSettings().timeframeMinutes}m candle closed`);
+        if (state.openTrade && !trustedFeed) {
+          state.candle.reason = `Paused: feed is ${state.feedMode}; waiting for live data before closing this paper trade.`;
+          state.candle.decision = "SKIP";
+          state.candle.decisionChecked = true;
+          saveState();
+          render();
+          return;
+        }
+        closeOpenTrade(state.price, `${settings.timeframeMinutes}m candle closed`);
         state.candle = createCandle(startMs, state.price);
       }
       state.candle.high = round(Math.max(state.candle.high, state.price));
@@ -1117,8 +1189,10 @@
       state.candle.close = round(state.price);
       state.candle.elapsedSeconds = Math.max(0, Math.floor((Date.now() - state.candle.startMs) / 1000));
       evaluateDecision();
-      markToMarket();
-      enforceExits();
+      if (trustedFeed) {
+        markToMarket();
+        enforceExits();
+      }
       saveState();
       render();
     }
@@ -1305,6 +1379,8 @@
       document.querySelector("#feedBadge").textContent = `feed ${state.feedMode}`;
       document.querySelector("#providerBadge").textContent = `${state.provider.name}: ${state.provider.symbol}`;
       document.querySelector("#runtimeBadge").textContent = `${state.provider.status} / localStorage`;
+      document.querySelector("#feedSafetyBadge").textContent = settings.requireLiveFeed ? "live feed entries only" : "fallback entries allowed";
+      document.querySelector("#feedSafetyBadge").className = settings.requireLiveFeed ? "badge warning" : "badge loss";
       document.querySelector("#timeframeBadge").textContent = `${settings.timeframeMinutes}m candles`;
       document.querySelector("#noTradeBadge").textContent = `no trade ${settings.noTradeSeconds}s`;
       document.querySelector("#wickBadge").textContent = `strict wick <= ${settings.maxCounterWick}`;
